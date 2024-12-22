@@ -18,8 +18,13 @@ const runCppProgram = () => {
     console.log(`C++ process exited with code ${code}`)
   })
 
-  cppProcess.stdin.write('Hello C++\n')
-  cppProcess.stdin.end() // Close stdin stream when done
+  function sendCommandToCpp(command: string) {
+    cppProcess.stdin.write(command + '\n') // Add newline to each command
+  }
+
+  sendCommandToCpp('CALLBACK PING')
+  sendCommandToCpp('EXIT')
+  cppProcess.stdin.end()
 }
 
 runCppProgram()
@@ -42,8 +47,13 @@ const runPythonScript = () => {
     console.log(`Python process exited with code ${code}`)
   })
 
-  pythonProcess.stdin.write('Hello Python\n')
-  pythonProcess.stdin.end() // Close stdin stream when done
+  function sendCommandToPython(command: string) {
+    pythonProcess.stdin.write(command + '\n') // Add newline to each command
+  }
+
+  sendCommandToPython('CALLBACK PING')
+  sendCommandToPython('EXIT')
+  pythonProcess.stdin.end()
 }
 
 runPythonScript()
