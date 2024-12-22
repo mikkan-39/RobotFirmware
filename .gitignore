@@ -1,6 +1,6 @@
 cpp-hardware-control/build
 
-node-decision-layer/node_modules
+nodejs-main-process/node_modules
 
 python-ml-control/venv
 

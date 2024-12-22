@@ -11,7 +11,7 @@ cd ../..
 
 # Initialize Node.js
 echo "Setting up Node.js environment..."
-cd node-decision-layer
+cd nodejs-main-process
 yarn install
 cd ..
 

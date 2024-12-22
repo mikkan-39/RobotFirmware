@@ -6,7 +6,7 @@ SCRIPT_DIR=$(cd "$(dirname "$0")" && pwd)
 # Set up the directories for your C++ build and Node.js
 CPP_DIR="$SCRIPT_DIR/cpp-hardware-control"
 BUILD_DIR="$SCRIPT_DIR/cpp-hardware-control/build"
-NODE_DIR="$SCRIPT_DIR/node-decision-layer"
+NODE_DIR="$SCRIPT_DIR/nodejs-main-process"
 
 # Create a build directory (if it doesn't exist)
 mkdir -p $BUILD_DIR
