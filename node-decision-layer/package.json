@@ -1,0 +1,16 @@
+{
+  "name": "robot-decision-layer",
+  "version": "0.1.0",
+  "description": "Main nodeJS process that controls all other robot functions.",
+  "main": "index.js",
+  "scripts": {
+    "build": "tsc",
+    "lint": "eslint src/**/*.ts"
+  },
+  "author": "Mikkan",
+  "private": true,
+  "devDependencies": {
+    "prettier": "^3.4.2",
+    "typescript": "^5.7.2"
+  }
+}
