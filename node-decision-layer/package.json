@@ -4,13 +4,16 @@
   "description": "Main nodeJS process that controls all other robot functions.",
   "main": "index.js",
   "scripts": {
+    "start": "ts-node index.ts",
     "build": "tsc",
     "lint": "eslint src/**/*.ts"
   },
   "author": "Mikkan",
   "private": true,
   "devDependencies": {
+    "@types/node": "^22.10.2",
     "prettier": "^3.4.2",
+    "ts-node": "^10.9.2",
     "typescript": "^5.7.2"
   }
 }
