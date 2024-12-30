@@ -9,9 +9,9 @@
 #include <wiringPi.h>
 #include <wiringSerial.h>  // For WiringPi serial functions
 
-#include "SCS.h"
+#include "SComms.h"
 
-class SCSerial : public SCS {
+class SCSerial : public SComms {
  public:
   SCSerial();
   SCSerial(u8 End);
@@ -19,11 +19,11 @@ class SCSerial : public SCS {
   int openSerial(const char *device);  // open serial
 
  protected:
-  virtual int writeSCS(unsigned char *nDat, int nLen);  // output nLen byte
-  virtual int readSCS(unsigned char *nDat, int nLen);   // input nLen byte
-  virtual int writeSCS(unsigned char bDat);             // output 1 byte
-  virtual void rFlushSCS();                             // flush read buffer
-  virtual void wFlushSCS();                             // flush write buffer
+  virtual void writeSCS(unsigned char *nDat, int nLen);  // output nLen byte
+  virtual int readSCS(unsigned char *nDat, int nLen);    // input nLen byte
+  virtual void writeSCS(unsigned char bDat);             // output 1 byte
+  virtual void rFlushSCS();                              // flush read buffer
+  virtual void wFlushSCS();                              // flush write buffer
 
  public:
   unsigned long int IOTimeOut;  // I/O timeout

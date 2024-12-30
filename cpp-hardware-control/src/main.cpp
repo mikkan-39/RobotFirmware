@@ -2,11 +2,12 @@
 #include <string>
 
 #include "SCServo/SCServo.h"
-SMS_STS STServo;
+STS STServo;
 const char *serialPath = "/dev/serial1";
 
 int main() {
   STServo.openSerial(serialPath);
+
   std::cout << "C++ subsystem started." << std::endl;
 
   std::string command;

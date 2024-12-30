@@ -1,354 +1,247 @@
 ﻿/*
- * SCS.cpp
- * communication layer for serial bus servo
+ * SCSCL.cpp
+ * application layer for waveshare serial bus servo
  */
 
 #include "SCS.h"
 
-#include <stddef.h>
+SCSCL::SCSCL() { End = 1; }
 
-SCS::SCS() {
-  Level = 1;  // all commands except broadcast command return response
-  Error = 0;
-}
+SCSCL::SCSCL(u8 End) : SCSerial(End) {}
 
-SCS::SCS(u8 End) {
-  Level = 1;
-  this->End = End;
-  Error = 0;
-}
+SCSCL::SCSCL(u8 End, u8 Level) : SCSerial(End, Level) {}
 
-SCS::SCS(u8 End, u8 Level) {
-  this->Level = Level;
-  this->End = End;
-  Error = 0;
-}
-
-// one 16-digit number split into two 8-digit numbers
-// DataL is low, DataH is high
-void SCS::Host2SCS(u8 *DataL, u8 *DataH, u16 Data) {
-  if (End) {
-    *DataL = (Data >> 8);
-    *DataH = (Data & 0xff);
-  } else {
-    *DataH = (Data >> 8);
-    *DataL = (Data & 0xff);
-  }
-}
-
-// combination of two 8-digit numbers into one 16-digit number
-// DataL is low, DataH is high
-u16 SCS::SCS2Host(u8 DataL, u8 DataH) {
-  u16 Data;
-  if (End) {
-    Data = DataL;
-    Data <<= 8;
-    Data |= DataH;
-  } else {
-    Data = DataH;
-    Data <<= 8;
-    Data |= DataL;
-  }
-  return Data;
-}
-
-void SCS::writeBuf(u8 ID, u8 MemAddr, u8 *nDat, u8 nLen, u8 Fun) {
-  u8 msgLen = 2;
+int SCSCL::WritePos(u8 ID, u16 Position, u16 Time, u16 Speed) {
   u8 bBuf[6];
-  u8 CheckSum = 0;
-  bBuf[0] = 0xff;
-  bBuf[1] = 0xff;
-  bBuf[2] = ID;
-  bBuf[4] = Fun;
-  if (nDat) {
-    msgLen += nLen + 1;
-    bBuf[3] = msgLen;
-    bBuf[5] = MemAddr;
-    writeSCS(bBuf, 6);
+  Host2SCS(bBuf + 0, bBuf + 1, Position);
+  Host2SCS(bBuf + 2, bBuf + 3, Time);
+  Host2SCS(bBuf + 4, bBuf + 5, Speed);
 
-  } else {
-    bBuf[3] = msgLen;
-    writeSCS(bBuf, 5);
-  }
-  CheckSum = ID + msgLen + Fun + MemAddr;
-  u8 i = 0;
-  if (nDat) {
-    for (i = 0; i < nLen; i++) {
-      CheckSum += nDat[i];
+  return genWrite(ID, SCSCL_GOAL_POSITION_L, bBuf, 6);
+}
+
+int SCSCL::WritePosEx(u8 ID, s16 Position, u16 Speed, u8 ACC) {
+  ACC = 0;
+  u16 Time = 0;
+  u8 bBuf[6];
+  Host2SCS(bBuf + 0, bBuf + 1, Position);
+  Host2SCS(bBuf + 2, bBuf + 3, Time);
+  Host2SCS(bBuf + 4, bBuf + 5, Speed);
+
+  return genWrite(ID, SCSCL_GOAL_POSITION_L, bBuf, 6);
+}
+
+int SCSCL::RegWritePos(u8 ID, u16 Position, u16 Time, u16 Speed) {
+  u8 bBuf[6];
+  Host2SCS(bBuf + 0, bBuf + 1, Position);
+  Host2SCS(bBuf + 2, bBuf + 3, Time);
+  Host2SCS(bBuf + 4, bBuf + 5, Speed);
+
+  return regWrite(ID, SCSCL_GOAL_POSITION_L, bBuf, 6);
+}
+
+int SCSCL::CalibrationOfs(u8 ID) { return -1; }
+
+void SCSCL::SyncWritePos(u8 ID[], u8 IDN, u16 Position[], u16 Time[],
+                         u16 Speed[]) {
+  u8 offbuf[6 * IDN];
+  for (u8 i = 0; i < IDN; i++) {
+    u16 T, V;
+    if (Time) {
+      T = Time[i];
+    } else {
+      T = 0;
     }
-    writeSCS(nDat, nLen);
-  }
-  writeSCS(~CheckSum);
-}
-
-// general write command.
-// the ID of the servo, the memory address in memory table, the data to write,
-// the length of data
-int SCS::genWrite(u8 ID, u8 MemAddr, u8 *nDat, u8 nLen) {
-  rFlushSCS();
-  writeBuf(ID, MemAddr, nDat, nLen, INST_WRITE);
-  wFlushSCS();
-  return Ack(ID);
-}
-
-// write asynchronously.
-// the ID of the servo，the memory address in memory table，the data to
-// write，the length of data
-int SCS::regWrite(u8 ID, u8 MemAddr, u8 *nDat, u8 nLen) {
-  rFlushSCS();
-  writeBuf(ID, MemAddr, nDat, nLen, INST_REG_WRITE);
-  wFlushSCS();
-  return Ack(ID);
-}
-
-// the trigger command for regWrite()
-// call this function to start the regWrite() command
-// ID: the ID of the servo
-int SCS::RegWriteAction(u8 ID) {
-  rFlushSCS();
-  writeBuf(ID, 0, NULL, 0, INST_REG_ACTION);
-  wFlushSCS();
-  return Ack(ID);
-}
-
-// write synchronously.
-// the list of servo IDs, the length(number) of the ID list, the memory address
-// in memory table, the data to write, the length of data.
-void SCS::syncWrite(u8 ID[], u8 IDN, u8 MemAddr, u8 *nDat, u8 nLen) {
-  rFlushSCS();
-  u8 mesLen = ((nLen + 1) * IDN + 4);
-  u8 Sum = 0;
-  u8 bBuf[7];
-  bBuf[0] = 0xff;
-  bBuf[1] = 0xff;
-  bBuf[2] = 0xfe;
-  bBuf[3] = mesLen;
-  bBuf[4] = INST_SYNC_WRITE;
-  bBuf[5] = MemAddr;
-  bBuf[6] = nLen;
-  writeSCS(bBuf, 7);
-
-  Sum = 0xfe + mesLen + INST_SYNC_WRITE + MemAddr + nLen;
-  u8 i, j;
-  for (i = 0; i < IDN; i++) {
-    writeSCS(ID[i]);
-    writeSCS(nDat + i * nLen, nLen);
-    Sum += ID[i];
-    for (j = 0; j < nLen; j++) {
-      Sum += nDat[i * nLen + j];
+    if (Speed) {
+      V = Speed[i];
+    } else {
+      V = 0;
     }
+    Host2SCS(offbuf + i * 6 + 0, offbuf + i * 6 + 1, Position[i]);
+    Host2SCS(offbuf + i * 6 + 2, offbuf + i * 6 + 3, T);
+    Host2SCS(offbuf + i * 6 + 4, offbuf + i * 6 + 5, V);
   }
-  writeSCS(~Sum);
-  wFlushSCS();
+  syncWrite(ID, IDN, SCSCL_GOAL_POSITION_L, offbuf, 6);
 }
 
-int SCS::writeByte(u8 ID, u8 MemAddr, u8 bDat) {
-  rFlushSCS();
-  writeBuf(ID, MemAddr, &bDat, 1, INST_WRITE);
-  wFlushSCS();
-  return Ack(ID);
+int SCSCL::PWMMode(u8 ID) {
+  u8 bBuf[4];
+  bBuf[0] = 0;
+  bBuf[1] = 0;
+  bBuf[2] = 0;
+  bBuf[3] = 0;
+  return genWrite(ID, SCSCL_MIN_ANGLE_LIMIT_L, bBuf, 4);
 }
 
-int SCS::writeWord(u8 ID, u8 MemAddr, u16 wDat) {
+int SCSCL::WritePWM(u8 ID, s16 pwmOut) {
+  if (pwmOut < 0) {
+    pwmOut = -pwmOut;
+    pwmOut |= (1 << 10);
+  }
   u8 bBuf[2];
-  Host2SCS(bBuf + 0, bBuf + 1, wDat);
-  rFlushSCS();
-  writeBuf(ID, MemAddr, bBuf, 2, INST_WRITE);
-  wFlushSCS();
-  return Ack(ID);
+  Host2SCS(bBuf + 0, bBuf + 1, pwmOut);
+
+  return genWrite(ID, SCSCL_GOAL_TIME_L, bBuf, 2);
 }
 
-// read command
-// the ID of servo, the memory address in memory table, the return data, the
-// length of data
-int SCS::Read(u8 ID, u8 MemAddr, u8 *nData, u8 nLen) {
-  rFlushSCS();
-  writeBuf(ID, MemAddr, &nLen, 1, INST_READ);
-  wFlushSCS();
-  if (!checkHead()) {
-    return 0;
-  }
-  u8 bBuf[4];
-  Error = 0;
-  if (readSCS(bBuf, 3) != 3) {
-    return 0;
-  }
-  int Size = readSCS(nData, nLen);
-  if (Size != nLen) {
-    return 0;
-  }
-  if (readSCS(bBuf + 3, 1) != 1) {
-    return 0;
-  }
-  u8 calSum = bBuf[0] + bBuf[1] + bBuf[2];
-  u8 i;
-  for (i = 0; i < Size; i++) {
-    calSum += nData[i];
-  }
-  calSum = ~calSum;
-  if (calSum != bBuf[3]) {
-    return 0;
-  }
-  Error = bBuf[2];
-  return Size;
+int SCSCL::EnableTorque(u8 ID, u8 Enable) {
+  return writeByte(ID, SCSCL_TORQUE_ENABLE, Enable);
 }
 
-// read 1 byte from servo, return -1 when timeout
-int SCS::readByte(u8 ID, u8 MemAddr) {
-  u8 bDat;
-  int Size = Read(ID, MemAddr, &bDat, 1);
-  if (Size != 1) {
-    return -1;
-  } else {
-    return bDat;
-  }
-}
+int SCSCL::unLockEprom(u8 ID) { return writeByte(ID, SCSCL_LOCK, 0); }
 
-// read 2 byte from servo, return -1 when timeout
-int SCS::readWord(u8 ID, u8 MemAddr) {
-  u8 nDat[2];
-  int Size;
-  u16 wDat;
-  Size = Read(ID, MemAddr, nDat, 2);
-  if (Size != 2) return -1;
-  wDat = SCS2Host(nDat[0], nDat[1]);
-  return wDat;
-}
+int SCSCL::LockEprom(u8 ID) { return writeByte(ID, SCSCL_LOCK, 1); }
 
-// Ping command, return the ID of servo, return -1 when timeout.
-int SCS::Ping(u8 ID) {
-  rFlushSCS();
-  writeBuf(ID, 0, NULL, 0, INST_PING);
-  wFlushSCS();
-  Error = 0;
-  if (!checkHead()) {
+int SCSCL::FeedBack(int ID) {
+  int nLen = Read(ID, SCSCL_PRESENT_POSITION_L, Mem, sizeof(Mem));
+  if (nLen != sizeof(Mem)) {
+    Err = 1;
     return -1;
   }
-  u8 bBuf[4];
-  if (readSCS(bBuf, 4) != 4) {
-    return -1;
-  }
-  if (bBuf[0] != ID && ID != 0xfe) {
-    return -1;
-  }
-  if (bBuf[1] != 2) {
-    return -1;
-  }
-  u8 calSum = ~(bBuf[0] + bBuf[1] + bBuf[2]);
-  if (calSum != bBuf[3]) {
-    return -1;
-  }
-  Error = bBuf[2];
-  return bBuf[0];
-}
-
-int SCS::checkHead() {
-  u8 bDat;
-  u8 bBuf[2] = {0, 0};
-  u8 Cnt = 0;
-  while (1) {
-    if (!readSCS(&bDat, 1)) {
-      return 0;
-    }
-    bBuf[1] = bBuf[0];
-    bBuf[0] = bDat;
-    if (bBuf[0] == 0xff && bBuf[1] == 0xff) {
-      break;
-    }
-    Cnt++;
-    if (Cnt > 10) {
-      return 0;
-    }
-  }
-  return 1;
-}
-
-int SCS::Ack(u8 ID) {
-  Error = 0;
-  if (ID != 0xfe && Level) {
-    if (!checkHead()) {
-      return 0;
-    }
-    u8 bBuf[4];
-    if (readSCS(bBuf, 4) != 4) {
-      return 0;
-    }
-    if (bBuf[0] != ID) {
-      return 0;
-    }
-    if (bBuf[1] != 2) {
-      return 0;
-    }
-    u8 calSum = ~(bBuf[0] + bBuf[1] + bBuf[2]);
-    if (calSum != bBuf[3]) {
-      return 0;
-    }
-    Error = bBuf[2];
-  }
-  return 1;
-}
-
-int SCS::syncReadPacketTx(u8 ID[], u8 IDN, u8 MemAddr, u8 nLen) {
-  syncReadRxPacketLen = nLen;
-  u8 checkSum = (4 + 0xfe) + IDN + MemAddr + nLen + INST_SYNC_READ;
-  u8 i;
-  writeSCS(0xff);
-  writeSCS(0xff);
-  writeSCS(0xfe);
-  writeSCS(IDN + 4);
-  writeSCS(INST_SYNC_READ);
-  writeSCS(MemAddr);
-  writeSCS(nLen);
-  for (i = 0; i < IDN; i++) {
-    writeSCS(ID[i]);
-    checkSum += ID[i];
-  }
-  checkSum = ~checkSum;
-  writeSCS(checkSum);
+  Err = 0;
   return nLen;
 }
 
-int SCS::syncReadPacketRx(u8 ID, u8 *nDat) {
-  syncReadRxPacket = nDat;
-  syncReadRxPacketIndex = 0;
-  u8 bBuf[4];
-  if (!checkHead()) {
-    return 0;
-  }
-  if (readSCS(bBuf, 3) != 3) {
-    return 0;
-  }
-  if (bBuf[0] != ID) {
-    return 0;
-  }
-  if (bBuf[1] != (syncReadRxPacketLen + 2)) {
-    return 0;
-  }
-  Error = bBuf[2];
-  if (readSCS(nDat, syncReadRxPacketLen) != syncReadRxPacketLen) {
-    return 0;
-  }
-  return syncReadRxPacketLen;
-}
-
-int SCS::syncReadRxPacketToByte() {
-  if (syncReadRxPacketIndex >= syncReadRxPacketLen) {
-    return -1;
-  }
-  return syncReadRxPacket[syncReadRxPacketIndex++];
-}
-
-int SCS::syncReadRxPacketToWrod(u8 negBit) {
-  if ((syncReadRxPacketIndex + 1) >= syncReadRxPacketLen) {
-    return -1;
-  }
-  int Word = SCS2Host(syncReadRxPacket[syncReadRxPacketIndex],
-                      syncReadRxPacket[syncReadRxPacketIndex + 1]);
-  syncReadRxPacketIndex += 2;
-  if (negBit) {
-    if (Word & (1 << negBit)) {
-      Word = -(Word & ~(1 << negBit));
+int SCSCL::ReadPos(int ID) {
+  int Pos = -1;
+  if (ID == -1) {
+    Pos = Mem[SCSCL_PRESENT_POSITION_L - SCSCL_PRESENT_POSITION_L];
+    Pos <<= 8;
+    Pos |= Mem[SCSCL_PRESENT_POSITION_H - SCSCL_PRESENT_POSITION_L];
+  } else {
+    Err = 0;
+    Pos = readWord(ID, SCSCL_PRESENT_POSITION_L);
+    if (Pos == -1) {
+      Err = 1;
     }
   }
-  return Word;
+  return Pos;
+}
+
+int SCSCL::ReadSpeed(int ID) {
+  int Speed = -1;
+  if (ID == -1) {
+    Speed = Mem[SCSCL_PRESENT_SPEED_L - SCSCL_PRESENT_POSITION_L];
+    Speed <<= 8;
+    Speed |= Mem[SCSCL_PRESENT_SPEED_H - SCSCL_PRESENT_POSITION_L];
+  } else {
+    Err = 0;
+    Speed = readWord(ID, SCSCL_PRESENT_SPEED_L);
+    if (Speed == -1) {
+      Err = 1;
+      return -1;
+    }
+  }
+  if (!Err && (Speed & (1 << 15))) {
+    Speed = -(Speed & ~(1 << 15));
+  }
+  return Speed;
+}
+
+int SCSCL::ReadLoad(int ID) {
+  int Load = -1;
+  if (ID == -1) {
+    Load = Mem[SCSCL_PRESENT_LOAD_L - SCSCL_PRESENT_POSITION_L];
+    Load <<= 8;
+    Load |= Mem[SCSCL_PRESENT_LOAD_H - SCSCL_PRESENT_POSITION_L];
+  } else {
+    Err = 0;
+    Load = readWord(ID, SCSCL_PRESENT_LOAD_L);
+    if (Load == -1) {
+      Err = 1;
+    }
+  }
+  if (!Err && (Load & (1 << 10))) {
+    Load = -(Load & ~(1 << 10));
+  }
+  return Load;
+}
+
+int SCSCL::ReadVoltage(int ID) {
+  int Voltage = -1;
+  if (ID == -1) {
+    Voltage = Mem[SCSCL_PRESENT_VOLTAGE - SCSCL_PRESENT_POSITION_L];
+  } else {
+    Err = 0;
+    Voltage = readByte(ID, SCSCL_PRESENT_VOLTAGE);
+    if (Voltage == -1) {
+      Err = 1;
+    }
+  }
+  return Voltage;
+}
+
+int SCSCL::ReadTemper(int ID) {
+  int Temper = -1;
+  if (ID == -1) {
+    Temper = Mem[SCSCL_PRESENT_TEMPERATURE - SCSCL_PRESENT_POSITION_L];
+  } else {
+    Err = 0;
+    Temper = readByte(ID, SCSCL_PRESENT_TEMPERATURE);
+    if (Temper == -1) {
+      Err = 1;
+    }
+  }
+  return Temper;
+}
+
+int SCSCL::ReadMove(int ID) {
+  int Move = -1;
+  if (ID == -1) {
+    Move = Mem[SCSCL_MOVING - SCSCL_PRESENT_POSITION_L];
+  } else {
+    Err = 0;
+    Move = readByte(ID, SCSCL_MOVING);
+    if (Move == -1) {
+      Err = 1;
+    }
+  }
+  return Move;
+}
+
+int SCSCL::ReadMode(int ID) {
+  int ValueRead = -1;
+  ValueRead = readWord(ID, SCSCL_MIN_ANGLE_LIMIT_L);
+  if (ValueRead == 0) {
+    return 3;
+  } else if (ValueRead > 0) {
+    return 0;
+  }
+  // int Mode = -1;
+  // if(ID==-1){
+  // 	Mode = Mem[STS_MODE-STS_PRESENT_POSITION_L];
+  // }else{
+  // 	Err = 0;
+  // 	Mode = readByte(ID, STS_MODE);
+  // 	if(Mode==-1){
+  // 		Err = 1;
+  // 	}
+  // }
+  return ValueRead;
+}
+
+int SCSCL::ReadInfoValue(int ID, int AddInput) {
+  int ValueRead = -1;
+  ValueRead = readWord(ID, AddInput);
+  return ValueRead;
+}
+
+int SCSCL::ReadCurrent(int ID) {
+  int Current = -1;
+  if (ID == -1) {
+    Current = Mem[SCSCL_PRESENT_CURRENT_L - SCSCL_PRESENT_POSITION_L];
+    Current <<= 8;
+    Current |= Mem[SCSCL_PRESENT_CURRENT_H - SCSCL_PRESENT_POSITION_L];
+  } else {
+    Err = 0;
+    Current = readWord(ID, SCSCL_PRESENT_CURRENT_L);
+    if (Current == -1) {
+      Err = 1;
+      return -1;
+    }
+  }
+  if (!Err && (Current & (1 << 15))) {
+    Current = -(Current & ~(1 << 15));
+  }
+  return Current;
 }

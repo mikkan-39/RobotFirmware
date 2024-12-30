@@ -6,13 +6,13 @@ SCSerial::SCSerial() {
   Err = 0;
 }
 
-SCSerial::SCSerial(u8 End) : SCS(End) {
+SCSerial::SCSerial(u8 End) : SComms(End) {
   IOTimeOut = 100;
   serial_fd = -1;
   Err = 0;
 }
 
-SCSerial::SCSerial(u8 End, u8 Level) : SCS(End, Level) {
+SCSerial::SCSerial(u8 End, u8 Level) : SComms(End, Level) {
   IOTimeOut = 100;
   serial_fd = -1;
   Err = 0;
@@ -59,15 +59,13 @@ int SCSerial::readSCS(unsigned char *nDat, int nLen) {
 }
 
 // Write data to the serial port
-int SCSerial::writeSCS(unsigned char *nDat, int nLen) {
+void SCSerial::writeSCS(unsigned char *nDat, int nLen) {
   serialPuts(serial_fd, (char *)nDat);  // Use WiringPi's serialPuts
-  return 0;
 }
 
 // Write a single byte to the serial port
-int SCSerial::writeSCS(unsigned char bDat) {
+void SCSerial::writeSCS(unsigned char bDat) {
   serialPutchar(serial_fd, bDat);  // Use WiringPi's serialPutchar
-  return 0;
 }
 
 // Flush the read buffer
