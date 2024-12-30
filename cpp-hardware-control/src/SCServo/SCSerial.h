@@ -6,7 +6,9 @@
 #ifndef _SCSERIAL_H
 #define _SCSERIAL_H
 
-#include "Arduino.h"
+#include <wiringPi.h>
+#include <wiringSerial.h>  // For WiringPi serial functions
+
 #include "SCS.h"
 
 class SCSerial : public SCS {
@@ -19,11 +21,12 @@ class SCSerial : public SCS {
   virtual int writeSCS(unsigned char *nDat, int nLen);  // output nLen byte
   virtual int readSCS(unsigned char *nDat, int nLen);   // input nLen byte
   virtual int writeSCS(unsigned char bDat);             // output 1 byte
-  virtual void rFlushSCS();                             //
-  virtual void wFlushSCS();                             //
+  virtual void rFlushSCS();                             // flush read buffer
+  virtual void wFlushSCS();                             // flush write buffer
+
  public:
   unsigned long int IOTimeOut;  // I/O timeout
-  HardwareSerial *pSerial;      // serial pointer
+  int serial_fd;                // File descriptor for WiringPi serial
   int Err;
 
  public:

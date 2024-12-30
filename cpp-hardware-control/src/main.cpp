@@ -13,12 +13,12 @@ int main() {
     }
 
     if (command == "CALLBACK PING") {
-      std::cout << "Ping acknowledged." << std::endl;
+      std::cout << "Ping acknowledged by C++." << std::endl;
     } else if (command == "EXIT") {
-      std::cout << "Exiting..." << std::endl;
+      std::cout << "Exiting C++..." << std::endl;
       break;
     } else {
-      std::cout << "Unknown command: " << command << std::endl;
+      std::cout << "Unknown command to C++: " << command << std::endl;
     }
   }
 

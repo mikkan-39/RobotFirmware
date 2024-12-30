@@ -2,11 +2,11 @@ import sys
 
 def handle_command(command):
     if command == "CALLBACK PING":
-        return "Ping acknowledged."
+        return "Ping acknowledged by Python."
     elif command == "EXIT":
-        return "Exiting..."
+        return "Exiting Python..."
     else:
-        return f"Unknown command: {command}"
+        return f"Unknown command to Python: {command}"
 
 def main():
     while True:
