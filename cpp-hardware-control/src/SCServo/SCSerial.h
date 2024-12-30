@@ -16,6 +16,7 @@ class SCSerial : public SCS {
   SCSerial();
   SCSerial(u8 End);
   SCSerial(u8 End, u8 Level);
+  int openSerial(const char *device);  // open serial
 
  protected:
   virtual int writeSCS(unsigned char *nDat, int nLen);  // output nLen byte

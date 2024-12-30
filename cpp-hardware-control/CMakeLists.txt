@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.10)
-project(HardwareControl)
+project(cpp-hardware-control)
 
 set(CMAKE_CXX_STANDARD 17)
 
@@ -9,6 +9,8 @@ src/SCServo/SCS.cpp
 src/SCServo/SCSCL.cpp
 src/SCServo/SMS_STS.cpp
 )
+
+target_include_directories(cpp-hardware-control PRIVATE ${CMAKE_CURRENT_LIST_DIR})
 
 find_library(WIRINGPI_LIB wiringPi REQUIRED)
 target_link_libraries(${PROJECT_NAME} ${WIRINGPI_LIB})

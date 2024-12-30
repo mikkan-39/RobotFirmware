@@ -41,6 +41,7 @@ class SCS {
   u8 *syncReadRxPacket;
 
  protected:
+  virtual int openSerial(const char *device) = 0;
   virtual int writeSCS(unsigned char *nDat, int nLen) = 0;
   virtual int readSCS(unsigned char *nDat, int nLen) = 0;
   virtual int writeSCS(unsigned char bDat) = 0;

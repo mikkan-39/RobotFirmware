@@ -8,6 +8,8 @@ set -e
 echo "Building hardware control..."
 cd cpp-hardware-control
 
+source ~/.bashrc
+
 # Install WiringPi if necessary
 if ! command -v gpio &> /dev/null
 then
@@ -16,7 +18,8 @@ then
     cd WiringPi
     ./build
     cd ..
-    rm -rf WiringPi
+    rm -rf /WiringPi
+    echo "WiringPi installed."
 else
     echo "WiringPi is already installed."
 fi

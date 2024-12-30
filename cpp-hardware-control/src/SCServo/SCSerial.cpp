@@ -20,7 +20,7 @@ SCSerial::SCSerial(u8 End, u8 Level) : SCS(End, Level) {
 
 // Open the serial port
 int SCSerial::openSerial(const char *device) {
-  serial_fd = serialOpen(device, 9600);  // Open the serial port at 9600 baud
+  serial_fd = serialOpen(device, 1000000);  // Open the serial port
   if (serial_fd == -1) {
     Err = -1;
     return -1;  // Error opening serial port
@@ -60,15 +60,14 @@ int SCSerial::readSCS(unsigned char *nDat, int nLen) {
 
 // Write data to the serial port
 int SCSerial::writeSCS(unsigned char *nDat, int nLen) {
-  if (nDat == NULL) {
-    return 0;
-  }
-  return serialPuts(serial_fd, (char *)nDat);  // Use WiringPi's serialPuts
+  serialPuts(serial_fd, (char *)nDat);  // Use WiringPi's serialPuts
+  return 0;
 }
 
 // Write a single byte to the serial port
 int SCSerial::writeSCS(unsigned char bDat) {
-  return serialPutchar(serial_fd, bDat);  // Use WiringPi's serialPutchar
+  serialPutchar(serial_fd, bDat);  // Use WiringPi's serialPutchar
+  return 0;
 }
 
 // Flush the read buffer
