@@ -36,8 +36,8 @@ int SCSerial::readSCS(unsigned char *nDat, int nLen) {
   unsigned long t_user;
 
   while (1) {
-    ComData = serialGetchar(serial_fd);  // Use WiringPi's serialGetchar
-    if (ComData != -1) {
+    if (serialDataAvail(serial_fd)) {
+      ComData = serialGetchar(serial_fd);
       if (nDat) {
         nDat[Size] = ComData;
       }
@@ -60,7 +60,9 @@ int SCSerial::readSCS(unsigned char *nDat, int nLen) {
 
 // Write data to the serial port
 void SCSerial::writeSCS(unsigned char *nDat, int nLen) {
-  serialPuts(serial_fd, (char *)nDat);  // Use WiringPi's serialPuts
+  for (int i = 0; i < nLen; ++i) {
+    serialPutchar(serial_fd, nDat[i]);
+  }
 }
 
 // Write a single byte to the serial port
