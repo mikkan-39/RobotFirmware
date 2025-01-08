@@ -6,6 +6,7 @@ export type MasterHandlerState = {
     cppWaiting: boolean
     pythonWaiting: boolean
     currentNeckHAngle: number
+    currentNeckVAngle: number
     lastYoloDetectionResult?: YoloDetectionResults
   }
 }

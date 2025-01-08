@@ -3,6 +3,7 @@
 
 #include <iomanip>  // For formatting table output
 #include <iostream>
+#include <map>
 #include <sstream>  // For std::ostringstream]
 #include <string>
 

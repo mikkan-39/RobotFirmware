@@ -13,13 +13,13 @@ const pythonProcess = spawn(pythonExecutable, ['-u', pythonScript])
 cppProcess.stdout.setEncoding('utf8')
 pythonProcess.stdout.setEncoding('utf8')
 
-// cppProcess.stderr.on('data', (data: Buffer) => {
-//   console.error(`C++ stderr: \n${data}`)
-// })
+cppProcess.stderr.on('data', (data: Buffer) => {
+  console.error(`C++ stderr: \n${data}`)
+})
 
-// pythonProcess.stderr.on('data', (data: Buffer) => {
-//   console.error(`Python stderr: \n${data}\n`)
-// })
+pythonProcess.stderr.on('data', (data: Buffer) => {
+  console.error(`Python stderr: \n${data}\n`)
+})
 
 cppProcess.on('close', (code: number) => {
   if (code !== 0) {

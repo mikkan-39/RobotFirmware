@@ -47,6 +47,8 @@ int main() {
       printPingResponses(pingResponses, NUM_SERVOS);
     } else if (command.rfind("HEAD_ROTATE", 0) == 0) {
       parseHeadOrEyeCommand(&headX, &headY, command);
+      STServo.WriteSpeed(ID_HEAD_HORIZONTAL, 0);
+      STServo.WriteAcc(ID_HEAD_HORIZONTAL, 0);
       STServo.WritePosition(ID_HEAD_HORIZONTAL, headX);
       STServo.WritePosition(ID_HEAD_VERTICAL, headY);
     } else if (command == "EXIT") {

@@ -1,11 +1,20 @@
 import sys
 import argparse
-# import json
+import json
+import numpy as np
 
 # import cv2
-from picamera2 import MappedArray, Picamera2, Preview
+from picamera2 import Picamera2
 from picamera2.devices import Hailo
 import libcamera
+
+# Custom encoder for NumPy float32
+class NumpyEncoder(json.JSONEncoder):
+    def default(self, obj):
+        if isinstance(obj, np.float32):
+            return float(obj)  # Convert np.float32 to Python float
+        return super().default(obj)
+
 
 def extract_detections(hailo_output, w, h, class_names, threshold=0.5):
     """Extract detections from the HailoRT-postprocess output."""
@@ -75,7 +84,7 @@ if __name__ == "__main__":
                     frame = picam2.capture_array('lores')
                     results = hailo.run(frame)
                     detections = extract_detections(results, video_w, video_h, class_names, args.score_thresh)
-                    print("READ_CAMERA: ", detections)
+                    print("READ_CAMERA: " + json.dumps(detections, cls=NumpyEncoder))
 
                 elif command:
                     handle_command(command)

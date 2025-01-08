@@ -52,7 +52,7 @@ void printPingResponses(const bool responses[], size_t size) {
 }
 
 void parseHeadOrEyeCommand(int* x, int* y, const std::string& command) {
-  // Check if the command starts with "HEAD_ROTATE"
+  // Check if the command starts with "HEAD_ROTATE" or "EYES_UPDATE"
   if (command.rfind("HEAD_ROTATE", 0) != 0 &&
       command.rfind("EYES_UPDATE", 0) != 0) {
     std::cerr << "Invalid command format\n";
@@ -60,33 +60,36 @@ void parseHeadOrEyeCommand(int* x, int* y, const std::string& command) {
   }
 
   // Extract the arguments after the command
-  std::istringstream iss(command.substr(11));  // Skip "HEAD_ROTATE "
-  std::string token;
-  int parsedX = *x;  // Initialize with last known values
-  int parsedY = *y;
+  std::istringstream iss(
+      command.substr(11));          // Skip "HEAD_ROTATE " or "EYES_UPDATE "
+  std::map<std::string, int> args;  // Map to store named arguments (x, y)
 
-  // Parse the tokens
-  bool xProvided = false, yProvided = false;
+  std::string token;
   while (iss >> token) {
-    try {
-      int value = std::stoi(token);
-      if (!xProvided) {
-        parsedX = value;
-        xProvided = true;
-      } else if (!yProvided) {
-        parsedY = value;
-        yProvided = true;
-      } else {
-        std::cerr << "Unexpected extra arguments\n";
+    size_t equalPos = token.find('=');
+    if (equalPos != std::string::npos) {
+      std::string key = token.substr(0, equalPos);
+      std::string value = token.substr(equalPos + 1);
+
+      // Attempt to parse the value as an integer
+      try {
+        int intValue = std::stoi(value);
+        args[key] = intValue;
+      } catch (std::invalid_argument&) {
+        std::cerr << "Invalid argument: " << value << "\n";
         return;
       }
-    } catch (std::invalid_argument& e) {
-      std::cerr << "Invalid argument: " << token << "\n";
+    } else {
+      std::cerr << "Invalid argument format: " << token << "\n";
       return;
     }
   }
 
-  // Update the x and y values
-  *x = parsedX;
-  *y = parsedY;
+  // Update x and y based on the parsed arguments, if they exist
+  if (args.find("x") != args.end()) {
+    *x = args["x"];
+  }
+  if (args.find("y") != args.end()) {
+    *y = args["y"];
+  }
 }

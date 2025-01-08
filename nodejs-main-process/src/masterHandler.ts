@@ -6,10 +6,12 @@ import {
   YoloDetectionResults,
 } from './types'
 
-const imageWidth = 1920 //  image width
-const imageHeight = 1080 //  image height
-const servoMin = 1024
-const servoMax = 3072
+const imageWidth = 1280 //  image width
+const imageHeight = 960 //  image height
+const servoXMin = 1024
+const servoXMax = 3072
+const servoYMin = 1536
+const servoYMax = 2550
 
 export const MasterHandler = (
   cppProcess: ChildProcessWithoutNullStreams,
@@ -33,6 +35,7 @@ export const MasterHandler = (
       cppWaiting: true,
       pythonWaiting: true,
       currentNeckHAngle: 2048,
+      currentNeckVAngle: 2048,
     },
   }
 
@@ -92,18 +95,15 @@ export const MasterHandler = (
       state.data.pythonWaiting = false
     }
     if (pythonMsg?.includes('READ_CAMERA')) {
+      setTimeout(() => sendToPython('READ_CAMERA'), 50)
       // Extract the part after the colon
       const dataString = pythonMsg.split(': ')[1]
       if (!dataString) {
         throw new Error('Python parsing error')
       }
-      // Preprocess the string: replace single quotes and convert tuples to arrays
-      const jsonString = dataString
-        .replace(/'/g, '"') // Replace single quotes with double quotes
-        .replace(/\(([^)]+)\)/g, '[$1]') // Replace tuples with arrays
 
       // Parse the JSON string into a JavaScript array
-      const results = (JSON.parse(jsonString) as RawPythonReadCamMsg).reduce(
+      const results = (JSON.parse(dataString) as RawPythonReadCamMsg).reduce(
         (acc: YoloDetectionResults, [name, [xs, ys, xe, ye], probability]) => {
           acc.push({name, coords: [xs, ys, xe, ye], probability})
           return acc
@@ -116,15 +116,32 @@ export const MasterHandler = (
       if (!firstPerson) {
         return
       }
-      const firstPersonX = (firstPerson.coords[2] - firstPerson.coords[0]) / 2
-      const firstPersony = (firstPerson.coords[3] - firstPerson.coords[1]) / 2
-      const servoOffset = (firstPersonX / imageWidth) * (servoMax - servoMin)
-      console.log({servoOffset})
+      const firstPersonX = (firstPerson.coords[2] + firstPerson.coords[0]) / 2
+      const firstPersonY = (firstPerson.coords[3] + firstPerson.coords[1]) / 2
+      const servoOffsetX =
+        (firstPersonX / imageWidth - 0.5) * 2 * (servoXMax - servoXMin)
+      const servoOffsetY =
+        (firstPersonY / imageHeight - 0.5) * 2 * (servoYMax - servoYMin)
 
-      if (Math.abs(servoOffset) > 100) {
-        console.log('move head')
+      if (Math.abs(servoOffsetX) > 10 || Math.abs(servoOffsetY) > 10) {
+        state.data.currentNeckHAngle = Math.max(
+          Math.min(
+            state.data.currentNeckHAngle + servoOffsetX * 0.1,
+            servoXMax,
+          ),
+          servoXMin,
+        )
+        state.data.currentNeckVAngle = Math.max(
+          Math.min(
+            state.data.currentNeckVAngle - servoOffsetY * 0.1,
+            servoYMax,
+          ),
+          servoYMin,
+        )
+        sendToCpp(
+          `HEAD_ROTATE x=${state.data.currentNeckHAngle}  y=${state.data.currentNeckVAngle}`,
+        )
       }
-      setTimeout(() => sendToPython('READ_CAMERA'), 100)
     }
 
     if (!state.data.pythonWaiting && !state.data.cppWaiting) {
@@ -147,8 +164,12 @@ export const MasterHandler = (
     lines.forEach((line) => {
       if (line !== '') {
         state.data.cppQueue.push(line)
-        console.log('C++ msg: ' + line)
-        commonUpdate({cppMsg: line})
+        console.log('C++ response <- : ' + line)
+        try {
+          commonUpdate({cppMsg: line})
+        } catch (err) {
+          console.error(err)
+        }
       }
     })
   })
@@ -159,8 +180,12 @@ export const MasterHandler = (
     lines.forEach((line) => {
       if (line !== '') {
         state.data.pythonQueue.push(line)
-        console.log('Python msg: ' + line)
-        commonUpdate({pythonMsg: line})
+        console.log('Python response <- : ' + line)
+        try {
+          commonUpdate({pythonMsg: line})
+        } catch (err) {
+          console.error(err)
+        }
       }
     })
   })
