@@ -32,6 +32,8 @@ cd ../..
 # Initialize Node.js
 echo "Setting up Node.js environment..."
 cd nodejs-main-process
+curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
+sudo apt-get install -y nodejs
 yarn install
 cd ..
 

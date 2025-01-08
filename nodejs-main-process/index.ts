@@ -1,7 +1,12 @@
 import {spawn} from 'child_process'
 import {MasterHandler} from './src/masterHandler'
-
+import {SerialPort} from 'serialport'
 console.log('Node.js supervisor started.')
+
+const HeadPort = new SerialPort({
+  path: '/dev/ttyAMA0',
+  baudRate: 115200,
+})
 
 const cppExecutable = '../cpp-hardware-control/build/cpp-hardware-control'
 const pythonExecutable = '../python-ml-control/venv/bin/python3'
@@ -50,7 +55,7 @@ process.on('exit', cleanup) // Handle normal exit
 
 // Main
 try {
-  MasterHandler(cppProcess, pythonProcess)
+  MasterHandler(cppProcess, pythonProcess, HeadPort)
 } catch (err) {
   console.error(err)
   cleanup()

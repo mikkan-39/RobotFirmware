@@ -1,6 +1,8 @@
 #include <errno.h>
 #include <string.h>
 
+#include <csignal>
+#include <cstdlib>
 #include <iostream>
 #include <string>
 
@@ -11,6 +13,20 @@ STS STServo;
 const char* serialPath = "/dev/ttyAMA4";
 
 #define NUM_SERVOS 22
+
+void cleanupAndExit(int signal) {
+  std::cout << "\nCaught signal " << signal << ", performing cleanup..."
+            << std::endl;
+
+  // Perform cleanup here (close files, release resources, etc.)
+  // Example:
+  std::cout << "Cleaning up resources...\n";
+  for (u8 id = 1; id <= NUM_SERVOS; id++) {
+    STServo.EnableTorque(id, false);
+  }
+  // Exit the program
+  std::exit(signal);
+}
 
 int main() {
   std::cout << "INIT: C++ subsystem started." << std::endl;
@@ -26,6 +42,9 @@ int main() {
               << strerror(errno) << std::endl;
     return 1;
   }
+
+  std::signal(SIGINT, cleanupAndExit);   // Handle Ctrl+C
+  std::signal(SIGTERM, cleanupAndExit);  // Handle termination signal
 
   bool pingResponses[NUM_SERVOS];
   for (u8 id = 1; id <= NUM_SERVOS; id++) {
@@ -53,6 +72,7 @@ int main() {
       STServo.WritePosition(ID_HEAD_VERTICAL, headY);
     } else if (command == "EXIT") {
       std::cout << "EXIT: Exiting C++..." << std::endl;
+      cleanupAndExit(0);
       break;
     } else {
       std::cout << "ERROR: Unknown command to C++: " << command << std::endl;

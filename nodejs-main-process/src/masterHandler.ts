@@ -5,6 +5,7 @@ import {
   UpdaterMsg,
   YoloDetectionResults,
 } from './types'
+import {SerialPort} from 'serialport'
 
 const imageWidth = 1280 //  image width
 const imageHeight = 960 //  image height
@@ -16,6 +17,7 @@ const servoYMax = 2550
 export const MasterHandler = (
   cppProcess: ChildProcessWithoutNullStreams,
   pythonProcess: ChildProcessWithoutNullStreams,
+  headPort: SerialPort,
 ) => {
   const sendToCpp = (command: string) => {
     console.log('C++ request -> ' + command)
@@ -25,6 +27,10 @@ export const MasterHandler = (
   const sendToPython = (command: string) => {
     console.log('Python request -> ' + command)
     pythonProcess.stdin.write(command + '\n')
+  }
+
+  const sendToHead = (command: string) => {
+    headPort.write(command + '\n')
   }
 
   const state: MasterHandlerState = {
@@ -114,16 +120,20 @@ export const MasterHandler = (
 
       const firstPerson = results.find((item) => item.name === 'person')
       if (!firstPerson) {
+        sendToHead('DRAW_EYES r75')
         return
       }
       const firstPersonX = (firstPerson.coords[2] + firstPerson.coords[0]) / 2
       const firstPersonY = (firstPerson.coords[3] + firstPerson.coords[1]) / 2
-      const servoOffsetX =
-        (firstPersonX / imageWidth - 0.5) * 2 * (servoXMax - servoXMin)
-      const servoOffsetY =
-        (firstPersonY / imageHeight - 0.5) * 2 * (servoYMax - servoYMin)
+      const offsetX = (firstPersonX / imageWidth - 0.5) * 2
+      const offsetY = (firstPersonY / imageHeight - 0.5) * 2
+      const servoOffsetX = offsetX * (servoXMax - servoXMin)
+      const servoOffsetY = offsetY * (servoYMax - servoYMin)
 
-      if (Math.abs(servoOffsetX) > 10 || Math.abs(servoOffsetY) > 10) {
+      const headCommand = `DRAW_EYES x${(120 - 120 * offsetX * 0.75).toFixed()} y${(120 + 120 * offsetY * 0.75).toFixed()} s10 r90`
+      sendToHead(headCommand)
+
+      if (Math.abs(offsetX) > 0.2 || Math.abs(offsetY) > 0.1) {
         state.data.currentNeckHAngle = Math.max(
           Math.min(
             state.data.currentNeckHAngle + servoOffsetX * 0.1,
@@ -189,4 +199,6 @@ export const MasterHandler = (
       }
     })
   })
+
+  // headPort.on('data', (data) => console.log('HEAD RESPONSE ', data.toString()))
 }
