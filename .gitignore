@@ -1,7 +1,9 @@
 cpp-hardware-control/build
 
 nodejs-main-process/node_modules
+nodejs-main-process/hailort.log
 
 python-ml-control/venv
+python-ml-control/hailort.log
 
 .vscode

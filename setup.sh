@@ -42,8 +42,10 @@ if [ ! -f "requirements.txt" ]; then
     echo "requirements.txt not found, creating a default one..."
     echo "numpy\ntensorflow\n" > requirements.txt
 fi
-python3 -m venv venv
+python3 -m venv --system-site-packages venv
 source venv/bin/activate
+sudo apt update
+sudo apt install -y libcap-dev libcamera-dev libcamera-apps
 pip install -r requirements.txt
 deactivate
 cd ..

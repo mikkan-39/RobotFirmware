@@ -57,12 +57,17 @@ class STS : public SCSerial {
   STS();
   STS(u8 End);
   STS(u8 End, u8 Level);
-  virtual int WritePosEx(u8 ID, s16 Position, u16 Speed,
-                         u8 ACC = 0);  // general write for single servo
-  virtual int RegWritePosEx(
+  virtual int WritePosSpeedAcc(u8 ID, s16 Position, u16 Speed,
+                               u8 ACC = 0);  // general write for single servo
+  virtual int WritePosition(u8 ID, u16 Position);
+  virtual int WriteSpeed(u8 ID, u16 Speed);
+  virtual int WriteAcc(u8 ID, u8 ACC);
+
+  virtual int WritePosSpeedAccAsync(
       u8 ID, s16 Position, u16 Speed,
-      u8 ACC = 0);  // position write asynchronously for single servo(call
-                    // RegWriteAction to action)
+      u8 ACC = 0);  // position write asynchronously for
+                    // single servo(call RegWriteAction
+                    // to action)
   virtual void SyncWritePosEx(
       u8 ID[], u8 IDN, s16 Position[], u16 Speed[],
       u8 ACC[]);                 // write synchronously for multi servos
@@ -76,8 +81,8 @@ class STS : public SCSerial {
   virtual int FeedBack(int ID);                // servo information feedback
   virtual int ReadPos(int ID);                 // read position
   virtual int ReadSpeed(int ID);               // read speed
-  virtual int ReadLoad(int ID);     // read motor load(0~1000, 1000 = 100% max
-                                    // load)
+  virtual int ReadLoad(int ID);     // read motor load(0~1000, 1000 = 100%
+                                    // max load)
   virtual int ReadVoltage(int ID);  // read voltage
   virtual int ReadTemper(int ID);   // read temperature
   virtual int ReadMove(int ID);     // read move mode

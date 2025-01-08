@@ -11,7 +11,7 @@ STS::STS(u8 End) : SCSerial(End) {}
 
 STS::STS(u8 End, u8 Level) : SCSerial(End, Level) {}
 
-int STS::WritePosEx(u8 ID, s16 Position, u16 Speed, u8 ACC) {
+int STS::WritePosSpeedAcc(u8 ID, s16 Position, u16 Speed, u8 ACC) {
   if (Position < 0) {
     Position = -Position;
     Position |= (1 << 15);
@@ -25,7 +25,25 @@ int STS::WritePosEx(u8 ID, s16 Position, u16 Speed, u8 ACC) {
   return genWrite(ID, STS_ACC, bBuf, 7);
 }
 
-int STS::RegWritePosEx(u8 ID, s16 Position, u16 Speed, u8 ACC) {
+int STS::WritePosition(u8 ID, u16 Position) {
+  if (Position < 0) {
+    Position = -Position;
+    Position |= (1 << 15);
+  }
+  u8 bBuf[2];
+  Host2SCS(bBuf + 0, bBuf + 1, Position);
+  return genWrite(ID, STS_GOAL_POSITION_L, bBuf, 2);
+}
+
+int STS::WriteSpeed(u8 ID, u16 Speed) {
+  u8 bBuf[2];
+  Host2SCS(bBuf + 0, bBuf + 1, Speed);
+  return genWrite(ID, STS_GOAL_SPEED_L, bBuf, 2);
+}
+
+int STS::WriteAcc(u8 ID, u8 ACC) { return writeByte(ID, STS_ACC, ACC); }
+
+int STS::WritePosSpeedAccAsync(u8 ID, s16 Position, u16 Speed, u8 ACC) {
   if (Position < 0) {
     Position = -Position;
     Position |= (1 << 15);

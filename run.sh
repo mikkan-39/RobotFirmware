@@ -27,6 +27,16 @@ if [ $? -ne 0 ]; then
   exit 1
 fi
 
+# Check if any process is using /dev/hailo0
+PROCESS_INFO=$(sudo lsof /dev/hailo0 | awk 'NR==2 {print $1, $2}')
+
+if [ -n "$PROCESS_INFO" ]; then
+  # Extract the PID from the process info
+  PID=$(echo $PROCESS_INFO | awk '{print $2}')
+  echo "Killing process $PROCESS_INFO"
+  sudo kill "$PID"
+fi
+
 # Change to Node.js directory and run yarn start
 echo "Starting Node.js application..."
 cd $NODE_DIR  # This ensures we're in the correct directory for Node.js
