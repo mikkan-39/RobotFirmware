@@ -4,6 +4,7 @@
 #include <csignal>
 #include <cstdlib>
 #include <iostream>
+#include <iterator>
 #include <string>
 
 #include "SCServo/SCServo.h"
@@ -64,6 +65,22 @@ int main() {
 
     if (command == "PING") {
       printPingResponses(pingResponses, NUM_SERVOS);
+    } else if (command == "SERVOS_QUERY") {
+      int servoPositions[NUM_SERVOS];
+      for (u8 id = 1; id <= NUM_SERVOS; id++) {
+        int position = STServo.readWord(id, STS_PRESENT_POSITION_L);
+        servoPositions[id] = position;
+      }
+
+      std::ostringstream output;
+      int size = sizeof(servoPositions) / sizeof(servoPositions[0]);
+
+      output << "Servo Positions: [";
+      for (int i = 1; i < size; i++) {
+        output << servoPositions[i] << (i < size - 1 ? ", " : "");
+      }
+      output << "]" << std::endl;
+      std::cout << output.str();
     } else if (command.rfind("HEAD_ROTATE", 0) == 0) {
       parseHeadOrEyeCommand(&headX, &headY, command);
       STServo.WriteSpeed(ID_HEAD_HORIZONTAL, 0);

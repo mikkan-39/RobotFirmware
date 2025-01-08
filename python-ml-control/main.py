@@ -47,9 +47,9 @@ if __name__ == "__main__":
                         help="Path to a text file containing labels.")
     parser.add_argument("-s", "--score_thresh", type=float, default=0.5,
                         help="Score threshold, must be a float between 0 and 1.")
-    parser.add_argument("-x", "--width", type=int, default=1280,
+    parser.add_argument("-x", "--width", type=int, default=1920,
                         help="Camera image width.")
-    parser.add_argument("-y", "--height", type=int, default=960,
+    parser.add_argument("-y", "--height", type=int, default=1080,
                         help="Camera image height.")
     args = parser.parse_args()
 

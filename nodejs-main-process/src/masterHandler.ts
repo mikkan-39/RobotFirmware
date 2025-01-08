@@ -7,8 +7,8 @@ import {
 } from './types'
 import {SerialPort} from 'serialport'
 
-const imageWidth = 1280 //  image width
-const imageHeight = 960 //  image height
+const imageWidth = 1920 //  image width
+const imageHeight = 1080 //  image height
 const servoXMin = 1024
 const servoXMax = 3072
 const servoYMin = 1536
@@ -101,7 +101,7 @@ export const MasterHandler = (
       state.data.pythonWaiting = false
     }
     if (pythonMsg?.includes('READ_CAMERA')) {
-      setTimeout(() => sendToPython('READ_CAMERA'), 50)
+      setTimeout(() => sendToPython('READ_CAMERA'), 100)
       // Extract the part after the colon
       const dataString = pythonMsg.split(': ')[1]
       if (!dataString) {
@@ -118,15 +118,19 @@ export const MasterHandler = (
       )
       state.data.lastYoloDetectionResult = results
 
-      const firstPerson = results.find((item) => item.name === 'person')
-      if (!firstPerson) {
+      const priorityObject =
+        results.find((item) => item.name === 'face') ||
+        results.find((item) => item.name === 'person')
+      if (!priorityObject) {
         sendToHead('DRAW_EYES r75')
         return
       }
-      const firstPersonX = (firstPerson.coords[2] + firstPerson.coords[0]) / 2
-      const firstPersonY = (firstPerson.coords[3] + firstPerson.coords[1]) / 2
-      const offsetX = (firstPersonX / imageWidth - 0.5) * 2
-      const offsetY = (firstPersonY / imageHeight - 0.5) * 2
+      const priorityObjectX =
+        (priorityObject.coords[2] + priorityObject.coords[0]) / 2
+      const priorityObjectY =
+        (priorityObject.coords[3] + priorityObject.coords[1]) / 2
+      const offsetX = (priorityObjectX / imageWidth - 0.5) * 2
+      const offsetY = (priorityObjectY / imageHeight - 0.5) * 2
       const servoOffsetX = offsetX * (servoXMax - servoXMin)
       const servoOffsetY = offsetY * (servoYMax - servoYMin)
 
@@ -159,6 +163,7 @@ export const MasterHandler = (
         case 'INIT':
           state.type = 'PINGING'
           sendToCpp('PING')
+          sendToCpp('SERVOS_QUERY')
           sendToPython('PING')
         case 'PINGING':
           state.type = 'READY'
