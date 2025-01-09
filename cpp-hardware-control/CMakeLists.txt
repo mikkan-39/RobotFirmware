@@ -3,8 +3,7 @@ project(cpp-hardware-control)
 
 set(CMAKE_CXX_STANDARD 17)
 
-add_executable(cpp-hardware-control src/main.cpp 
-src/SCServo/ServoClass.cpp
+add_executable(cpp-hardware-control src/main.cpp
 src/SCServo/SCSerial.cpp 
 src/SCServo/SComms.cpp
 src/SCServo/SCS.cpp
