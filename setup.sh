@@ -40,10 +40,6 @@ cd ..
 # Set up Python environment
 echo "Setting up Python environment..."
 cd python-ml-control
-if [ ! -f "requirements.txt" ]; then
-    echo "requirements.txt not found, creating a default one..."
-    echo "numpy\ntensorflow\n" > requirements.txt
-fi
 python3 -m venv --system-site-packages venv
 source venv/bin/activate
 sudo apt update
