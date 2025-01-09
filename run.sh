@@ -50,4 +50,5 @@ if [ -n "$previous_pid" ]; then
   kill "$previous_pid"  # Kill the previous process
 fi
 
+rm -f nohup.out
 nohup yarn start & tail -f nohup.out

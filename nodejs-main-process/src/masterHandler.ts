@@ -18,6 +18,7 @@ export const MasterHandler = (
       pythonProcess.stdin.write(command + '\n')
     },
     rp2040: (command) => {
+      console.log('RP2040 request -> ' + command)
       Rp2040Port.write(command + '\n')
     },
   }
