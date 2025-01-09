@@ -3,7 +3,7 @@ import {MasterHandler} from './src/masterHandler'
 import {SerialPort} from 'serialport'
 console.log('Node.js supervisor started.')
 
-const HeadPort = new SerialPort({
+const RP2040Port = new SerialPort({
   path: '/dev/ttyAMA0',
   baudRate: 115200,
 })
@@ -26,20 +26,6 @@ pythonProcess.stderr.on('data', (data: Buffer) => {
   console.error(`Python stderr: \n${data}\n`)
 })
 
-cppProcess.on('close', (code: number) => {
-  if (code !== 0) {
-    throw new Error(`C++ process exited with code ${code}`)
-  }
-  console.log(`C++ process exited with code ${code}`)
-})
-
-pythonProcess.on('close', (code: number) => {
-  if (code !== 0) {
-    throw new Error(`Python process exited with code ${code}`)
-  }
-  console.log(`Python process exited with code ${code}`)
-})
-
 const cleanup = () => {
   // Send termination signals to the child processes
   console.log('Cleaning up...')
@@ -48,6 +34,22 @@ const cleanup = () => {
   process.exit()
 }
 
+cppProcess.on('close', (code: number) => {
+  if (code !== 0) {
+    throw new Error(`C++ process exited with code ${code}`)
+  }
+  console.log(`C++ process exited with code ${code}`)
+  cleanup()
+})
+
+pythonProcess.on('close', (code: number) => {
+  if (code !== 0) {
+    throw new Error(`Python process exited with code ${code}`)
+  }
+  console.log(`Python process exited with code ${code}`)
+  cleanup()
+})
+
 // Listen to exit signals
 process.on('SIGINT', cleanup) // Handle Ctrl-C
 process.on('SIGTERM', cleanup) // Handle termination
@@ -55,7 +57,7 @@ process.on('exit', cleanup) // Handle normal exit
 
 // Main
 try {
-  MasterHandler(cppProcess, pythonProcess, HeadPort)
+  MasterHandler(cppProcess, pythonProcess, RP2040Port)
 } catch (err) {
   console.error(err)
   cleanup()

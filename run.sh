@@ -40,4 +40,14 @@ fi
 # Change to Node.js directory and run yarn start
 echo "Starting Node.js application..."
 cd $NODE_DIR  # This ensures we're in the correct directory for Node.js
-yarn start
+
+# Find and kill previous nohup processes if any
+echo "Checking for previous nohup processes..."
+previous_pid=$(pgrep -f "yarn start")  # Find the process ID of the previous nohup process
+
+if [ -n "$previous_pid" ]; then
+  echo "Killing previous nohup process with PID $previous_pid..."
+  kill "$previous_pid"  # Kill the previous process
+fi
+
+nohup yarn start & tail -f nohup.out

@@ -1,0 +1,3 @@
+[submodule "head_rp2040_firmware"]
+	path = head_rp2040_firmware
+	url = https://github.com/mikkan-39/Robot_Head_RP2040

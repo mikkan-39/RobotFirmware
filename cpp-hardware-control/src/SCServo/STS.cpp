@@ -26,10 +26,6 @@ int STS::WritePosSpeedAcc(u8 ID, s16 Position, u16 Speed, u8 ACC) {
 }
 
 int STS::WritePosition(u8 ID, u16 Position) {
-  if (Position < 0) {
-    Position = -Position;
-    Position |= (1 << 15);
-  }
   u8 bBuf[2];
   Host2SCS(bBuf + 0, bBuf + 1, Position);
   return genWrite(ID, STS_GOAL_POSITION_L, bBuf, 2);
@@ -43,11 +39,7 @@ int STS::WriteSpeed(u8 ID, u16 Speed) {
 
 int STS::WriteAcc(u8 ID, u8 ACC) { return writeByte(ID, STS_ACC, ACC); }
 
-int STS::WritePosSpeedAccAsync(u8 ID, s16 Position, u16 Speed, u8 ACC) {
-  if (Position < 0) {
-    Position = -Position;
-    Position |= (1 << 15);
-  }
+int STS::WritePosSpeedAccAsync(u8 ID, u16 Position, u16 Speed, u8 ACC) {
   u8 bBuf[7];
   bBuf[0] = ACC;
   Host2SCS(bBuf + 1, bBuf + 2, Position);
@@ -60,11 +52,7 @@ int STS::WritePosSpeedAccAsync(u8 ID, s16 Position, u16 Speed, u8 ACC) {
 void STS::SyncWritePositions(u8 ID[], u8 IDN, u16 Position[]) {
   u8 offbuf[2 * IDN];
   for (u8 i = 0; i < IDN; i++) {
-    if (Position[i] < 0) {
-      Position[i] = -Position[i];
-      Position[i] |= (1 << 15);
-    }
-    Host2SCS(offbuf + i * 7 + 1, offbuf + i * 7 + 2, Position[i]);
+    Host2SCS(offbuf + i * 2, offbuf + i * 2 + 1, Position[i]);
   }
   syncWrite(ID, IDN, STS_GOAL_POSITION_L, offbuf, 2);
 }
