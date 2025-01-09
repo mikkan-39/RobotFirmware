@@ -13,9 +13,9 @@ const char* ServoNamesById[] = {
     "HIP_ROTATE_R",     // ID 9
     "HIP_ROTATE_L",     // ID 10
     "HIP_TILT_R",       // ID 11
-    "HIP_TILT_L",       // ID 12
+    "HIP_MAIN_L",       // ID 12
     "HIP_MAIN_R",       // ID 13
-    "HIP_MAIN_L",       // ID 14
+    "HIP_TILT_L",       // ID 14
     "KNEE_R",           // ID 15
     "KNEE_L",           // ID 16
     "FOOT_MAIN_R",      // ID 17
@@ -26,12 +26,17 @@ const char* ServoNamesById[] = {
     "HEAD_VERTICAL",    // ID 22
 };
 
-void printPingResponses(const bool responses[], size_t size) {
+void handlePing(STS STServo, int NUM_SERVOS) {
+  bool pingResponses[NUM_SERVOS];
+  for (u8 id = 1; id <= NUM_SERVOS; id++) {
+    bool initialized = STServo.Ping(id) != -1;
+    pingResponses[id] = initialized;
+  }
   // Create a stringstream to accumulate the output
   std::ostringstream output;
   // Iterate through the responses and print results
-  for (size_t i = 1; i <= size; ++i) {
-    if (responses[i]) {
+  for (size_t i = 1; i <= NUM_SERVOS; ++i) {
+    if (pingResponses[i]) {
       // Print "OK" for true responses
       output << std::left << std::setw(15)
              << green + "Servo " + std::to_string(i) << std::setw(15)
@@ -44,52 +49,61 @@ void printPingResponses(const bool responses[], size_t size) {
              << std::endl;
     }
   }
-
   output << "PING ACK" << std::endl;
-
   // Output all accumulated text at once
   std::cout << output.str();
 }
 
-void parseHeadOrEyeCommand(int* x, int* y, const std::string& command) {
-  // Check if the command starts with "HEAD_ROTATE" or "EYES_UPDATE"
-  if (command.rfind("HEAD_ROTATE", 0) != 0 &&
-      command.rfind("EYES_UPDATE", 0) != 0) {
-    std::cerr << "Invalid command format\n";
+void handleQueryServoPositions(STS STServo, int NUM_SERVOS) {
+  int servoPositions[NUM_SERVOS];
+  for (u8 id = 1; id <= NUM_SERVOS; id++) {
+    int position = STServo.readWord(id, STS_PRESENT_POSITION_L);
+    servoPositions[id] = position;
+  }
+
+  std::ostringstream output;
+  int size = sizeof(servoPositions) / sizeof(servoPositions[0]);
+
+  output << "Servo Positions: [";
+  for (int i = 1; i < size; i++) {
+    output << servoPositions[i] << (i < size - 1 ? ", " : "");
+  }
+  output << "]" << std::endl;
+  std::cout << output.str();
+}
+
+void handleSetServoPositions(STS STServo, const std::string& command) {
+  std::istringstream iss(command);
+  std::string commandType;
+  iss >> commandType;
+
+  if (commandType != "SET_SERVO_POS") {
+    std::cerr << "Unknown command type: " << commandType << std::endl;
     return;
   }
 
-  // Extract the arguments after the command
-  std::istringstream iss(
-      command.substr(11));          // Skip "HEAD_ROTATE " or "EYES_UPDATE "
-  std::map<std::string, int> args;  // Map to store named arguments (x, y)
+  std::vector<u8> servoIDs;
+  std::vector<u16> positions;
 
-  std::string token;
-  while (iss >> token) {
-    size_t equalPos = token.find('=');
-    if (equalPos != std::string::npos) {
-      std::string key = token.substr(0, equalPos);
-      std::string value = token.substr(equalPos + 1);
-
-      // Attempt to parse the value as an integer
-      try {
-        int intValue = std::stoi(value);
-        args[key] = intValue;
-      } catch (std::invalid_argument&) {
-        std::cerr << "Invalid argument: " << value << "\n";
-        return;
-      }
-    } else {
-      std::cerr << "Invalid argument format: " << token << "\n";
-      return;
+  std::string pair;
+  while (iss >> pair) {
+    auto equalPos = pair.find('=');
+    if (equalPos == std::string::npos) {
+      std::cerr << "Malformed pair: " << pair << std::endl;
+      continue;
     }
+
+    u8 id = static_cast<u8>(std::stoi(pair.substr(0, equalPos)));
+    u16 position = static_cast<u16>(std::stoi(pair.substr(equalPos + 1)));
+
+    servoIDs.push_back(id);
+    positions.push_back(position);
   }
 
-  // Update x and y based on the parsed arguments, if they exist
-  if (args.find("x") != args.end()) {
-    *x = args["x"];
-  }
-  if (args.find("y") != args.end()) {
-    *y = args["y"];
+  if (servoIDs.size() == 1) {
+    STServo.WritePosition(servoIDs[0], positions[0]);
+  } else if (!servoIDs.empty()) {
+    STServo.SyncWritePositions(servoIDs.data(), servoIDs.size(),
+                               positions.data());
   }
 }

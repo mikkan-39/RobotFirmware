@@ -16,16 +16,13 @@ const char* serialPath = "/dev/ttyAMA4";
 #define NUM_SERVOS 22
 
 void cleanupAndExit(int signal) {
-  std::cout << "\nCaught signal " << signal << ", performing cleanup..."
-            << std::endl;
-
-  // Perform cleanup here (close files, release resources, etc.)
-  // Example:
-  std::cout << "Cleaning up resources...\n";
+  std::cout << "\nReceived termination signal " << signal
+            << ", performing shutdown..." << std::endl;
+  std::cout << "Disabling Servos Torque...\n";
   for (u8 id = 1; id <= NUM_SERVOS; id++) {
     STServo.EnableTorque(id, false);
   }
-  // Exit the program
+
   std::exit(signal);
 }
 
@@ -47,14 +44,6 @@ int main() {
   std::signal(SIGINT, cleanupAndExit);   // Handle Ctrl+C
   std::signal(SIGTERM, cleanupAndExit);  // Handle termination signal
 
-  bool pingResponses[NUM_SERVOS];
-  for (u8 id = 1; id <= NUM_SERVOS; id++) {
-    bool initialized = STServo.Ping(id) != -1;
-    pingResponses[id] = initialized;
-  }
-
-  int headX = 2048;
-  int headY = 2048;
   std::string command;
   while (true) {
     std::getline(std::cin, command);  // Read command from stdin
@@ -64,29 +53,11 @@ int main() {
     }
 
     if (command == "PING") {
-      printPingResponses(pingResponses, NUM_SERVOS);
+      handlePing(STServo, NUM_SERVOS);
     } else if (command == "SERVOS_QUERY") {
-      int servoPositions[NUM_SERVOS];
-      for (u8 id = 1; id <= NUM_SERVOS; id++) {
-        int position = STServo.readWord(id, STS_PRESENT_POSITION_L);
-        servoPositions[id] = position;
-      }
-
-      std::ostringstream output;
-      int size = sizeof(servoPositions) / sizeof(servoPositions[0]);
-
-      output << "Servo Positions: [";
-      for (int i = 1; i < size; i++) {
-        output << servoPositions[i] << (i < size - 1 ? ", " : "");
-      }
-      output << "]" << std::endl;
-      std::cout << output.str();
-    } else if (command.rfind("HEAD_ROTATE", 0) == 0) {
-      parseHeadOrEyeCommand(&headX, &headY, command);
-      STServo.WriteSpeed(ID_HEAD_HORIZONTAL, 0);
-      STServo.WriteAcc(ID_HEAD_HORIZONTAL, 0);
-      STServo.WritePosition(ID_HEAD_HORIZONTAL, headX);
-      STServo.WritePosition(ID_HEAD_VERTICAL, headY);
+      handleQueryServoPositions(STServo, NUM_SERVOS);
+    } else if (command.rfind("SET_SERVO_POS", 0) == 0) {
+      handleSetServoPositions(STServo, command);
     } else if (command == "EXIT") {
       std::cout << "EXIT: Exiting C++..." << std::endl;
       cleanupAndExit(0);

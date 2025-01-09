@@ -53,7 +53,6 @@ uint8_t ff[45];
 uint8_t dsp[110];
 uint8_t krr[4];
 int8_t kn;
-int8_t LEDct;  // LED lighting counter
 
 float fwctEnd, fwct, fwctUp;
 float pitch, roll, pitcht, rollt;
@@ -1285,8 +1284,6 @@ int main(void) {
   ////Variable initialization ////
   ////////////////////
 
-  LEDct = 0;  // LED lighting counter
-
   tBak = 0;
   pitchi = 0;
   tNow = 0;
@@ -1565,22 +1562,6 @@ top:
   keyCont();
 
   walk();
-
-  ///////////////
-  ////Head LED ////
-  ///////////////
-  ++LEDct;
-  if (LEDct > 100) LEDct = -100;  // IMU Ready
-
-  if (mode <= 720 && LEDct > 10) LEDct = -10;  // IMU not Ready
-
-  if (LEDct > 0) {
-    dac_write(0xffff);
-    pio_write(PIO_LED1, LOW);  // ON
-  } else {
-    dac_write(0);
-    pio_write(PIO_LED1, HIGH);  // OFF
-  }
 
   goto top;
 }

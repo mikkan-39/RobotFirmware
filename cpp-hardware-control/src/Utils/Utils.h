@@ -6,6 +6,7 @@
 #include <map>
 #include <sstream>  // For std::ostringstream]
 #include <string>
+#include <vector>
 
 #include "../SCServo/SCServo.h"
 
@@ -15,7 +16,7 @@ const std::string green = "\033[32m";
 const std::string blue = "\033[34m";
 const std::string reset = "\033[0m";
 
-void printPingResponses(const bool responses[], size_t size);
-void parseHeadOrEyeCommand(int* x, int* y, const std::string& command);
-
+void handlePing(STS STServo, int NUM_SERVOS);
+void handleQueryServoPositions(STS STServo, int NUM_SERVOS);
+void handleSetServoPositions(STS STServo, const std::string& command);
 #endif
