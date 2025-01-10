@@ -31,6 +31,7 @@ const cleanup = () => {
   console.log('Cleaning up...')
   pythonProcess.kill('SIGTERM')
   cppProcess.kill('SIGTERM')
+  RP2040Port.write('DRAW_INIT\n') // Resetting RP2040 state
   process.exit()
 }
 

@@ -3,9 +3,11 @@ export type MasterHandlerState = {
   data: {
     cppWaiting: boolean
     pythonWaiting: boolean
-    currentNeckHAngle: number
-    currentNeckVAngle: number
+    rp2040Waiting: boolean
+    lastServoPositions?: Record<number, number>
     lastYoloDetectionResult?: YoloDetectionResults
+    lastIMUData?: IMUData
+    lastTOFData?: number
   }
 }
 
@@ -19,7 +21,14 @@ export type CppStdinHandler = (msg: CppStdinMsg) => void
 export type PythonStdinMsg = 'PING' | 'READ_CAMERA' | 'EXIT'
 export type PythonStdinHandler = (msg: PythonStdinMsg) => void
 
-export type RP2040PortMsg = 'DRAW_LOADING' | 'DRAW_ERROR' | `DRAW_EYES${string}`
+export type RP2040PortMsg =
+  | 'PING'
+  | 'DRAW_INIT'
+  | 'READ_TOF'
+  | 'READ_IMU'
+  | 'DRAW_LOADING'
+  | 'DRAW_ERROR'
+  | `DRAW_EYES${string}`
 export type RP2040PortHandler = (msg: RP2040PortMsg) => void
 
 export type StdinHandlers = {
@@ -61,6 +70,18 @@ export type DrawEyesArgs = Partial<
   Record<keyof typeof DrawEyesArgsEnum, number | string>
 >
 
+export type IMUData = {
+  roll: number
+  pitch: number
+  yaw: number
+  gx: number
+  gy: number
+  gz: number
+  ax: number
+  ay: number
+  az: number
+}
+
 export const ServoIDs = {
   SHOULDER_MAIN_R: 1,
   SHOULDER_TILT_R: 3,
@@ -87,3 +108,5 @@ export const ServoIDs = {
   HEAD_HORIZONTAL: 21,
   HEAD_VERTICAL: 22,
 } as const
+
+export const ServoMiddle = 2048 as const

@@ -62,13 +62,12 @@ void handleQueryServoPositions(STS STServo, int NUM_SERVOS) {
   }
 
   std::ostringstream output;
-  int size = sizeof(servoPositions) / sizeof(servoPositions[0]);
-
-  output << "Servo Positions: [";
-  for (int i = 1; i < size; i++) {
-    output << servoPositions[i] << (i < size - 1 ? ", " : "");
+  output << "SERVOS_QUERY: {";
+  for (int i = 1; i <= NUM_SERVOS; i++) {
+    output << "\"" << i << "\"" << ": " << servoPositions[i]
+           << (i <= NUM_SERVOS - 1 ? ", " : "");
   }
-  output << "]" << std::endl;
+  output << "}" << std::endl;
   std::cout << output.str();
 }
 

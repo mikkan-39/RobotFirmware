@@ -1,37 +1,22 @@
 import {makeDrawEyesCommand, makeMoveServosCommand} from './commands'
 import {
+  IMUData,
   MasterHandlerState,
   RawPythonReadCamMsg,
   ServoIDs,
+  ServoMiddle,
   StdinHandlers,
   YoloDetectionResults,
 } from './types'
 
-type CameraHandlerArgs = {
+type CommonHandlerArgs = {
   state: MasterHandlerState
-  pythonMsg: string
+  msg: string
   handlers: StdinHandlers
 }
 
-export const ReceiveReadCameraHandler = ({
-  state,
-  pythonMsg,
-  handlers,
-}: CameraHandlerArgs) => {
-  const imageWidth = 1920 //  image width
-  const imageHeight = 1080 //  image height
-  const servoXMin = 1024
-  const servoXMax = 3072
-  const servoYMin = 1536
-  const servoYMax = 2550
-
-  // Extract the part after the colon
-  const dataString = pythonMsg.split(': ')[1]
-  if (!dataString) {
-    throw new Error('Python parsing error')
-  }
-
-  // Parse the JSON string into a JavaScript array
+export const ReceiveReadCameraHandler = ({state, msg}: CommonHandlerArgs) => {
+  const dataString = msg.replace('READ_CAMERA: ', '')
   const results = (JSON.parse(dataString) as RawPythonReadCamMsg).reduce(
     (acc: YoloDetectionResults, [name, [xs, ys, xe, ye], probability]) => {
       acc.push({name, coords: [xs, ys, xe, ye], probability})
@@ -40,10 +25,42 @@ export const ReceiveReadCameraHandler = ({
     [],
   )
   state.data.lastYoloDetectionResult = results
+}
+
+export const ReceiveServosQueryHandler = ({state, msg}: CommonHandlerArgs) => {
+  const dataString = msg.replace('SERVOS_QUERY: ', '')
+  const results = JSON.parse(dataString) as Record<number, number>
+  state.data.lastServoPositions = results
+}
+
+export const ReceiveReadIMUHandler = ({state, msg}: CommonHandlerArgs) => {
+  const dataString = msg.replace('READ_IMU: ', '')
+  const results = JSON.parse(dataString) as IMUData
+  state.data.lastIMUData = results
+}
+
+export const ReceiveReadTOFHandler = ({state, msg}: CommonHandlerArgs) => {
+  const dataString = msg.replace('READ_TOF: ', '')
+  const results = JSON.parse(dataString) as {distance: number}
+  state.data.lastTOFData = results.distance
+}
+
+export const MoveHeadHandler = ({
+  state,
+  handlers,
+}: Omit<CommonHandlerArgs, 'msg'>) => {
+  const imageWidth = 1920 //  camera width
+  const imageHeight = 1080 //  camera height
+  const servoXMin = 1024
+  const servoXMax = 3072
+  const servoYMin = 1536
+  const servoYMax = 2550
+
+  const {lastServoPositions, lastYoloDetectionResult} = state.data
 
   const priorityObject =
-    results.find((item) => item.name === 'face') ||
-    results.find((item) => item.name === 'person')
+    lastYoloDetectionResult?.find((item) => item.name === 'face') ||
+    lastYoloDetectionResult?.find((item) => item.name === 'person')
   if (!priorityObject) {
     handlers.rp2040(makeDrawEyesCommand({radius: 75}))
     return
@@ -67,18 +84,25 @@ export const ReceiveReadCameraHandler = ({
   )
 
   if (Math.abs(offsetX) > 0.2 || Math.abs(offsetY) > 0.1) {
-    state.data.currentNeckHAngle = Math.max(
-      Math.min(state.data.currentNeckHAngle + servoOffsetX * 0.1, servoXMax),
+    let currentNeckHAngle =
+      lastServoPositions?.[ServoIDs.HEAD_HORIZONTAL] ?? ServoMiddle
+    let currentNeckVAngle =
+      lastServoPositions?.[ServoIDs.HEAD_VERTICAL] ?? ServoMiddle
+
+    console.log({currentNeckHAngle, currentNeckVAngle})
+
+    currentNeckHAngle = Math.max(
+      Math.min(currentNeckHAngle + servoOffsetX * 0.2, servoXMax),
       servoXMin,
     )
-    state.data.currentNeckVAngle = Math.max(
-      Math.min(state.data.currentNeckVAngle - servoOffsetY * 0.1, servoYMax),
+    currentNeckVAngle = Math.max(
+      Math.min(currentNeckVAngle - servoOffsetY * 0.2, servoYMax),
       servoYMin,
     )
     handlers.cpp(
       makeMoveServosCommand({
-        [ServoIDs.HEAD_HORIZONTAL]: state.data.currentNeckHAngle,
-        [ServoIDs.HEAD_VERTICAL]: state.data.currentNeckVAngle,
+        [ServoIDs.HEAD_HORIZONTAL]: currentNeckHAngle,
+        [ServoIDs.HEAD_VERTICAL]: currentNeckVAngle,
       }),
     )
   }

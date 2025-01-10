@@ -1,19 +1,37 @@
 import type {ChildProcessWithoutNullStreams} from 'child_process'
 import {MasterHandlerState, UpdaterMsg, StdinHandlers} from './types'
 import {SerialPort} from 'serialport'
-import {ReceiveReadCameraHandler} from './handlers'
+import {
+  MoveHeadHandler,
+  ReceiveReadCameraHandler,
+  ReceiveReadIMUHandler,
+  ReceiveReadTOFHandler,
+  ReceiveServosQueryHandler,
+} from './handlers'
+import {off} from 'process'
 
 export const MasterHandler = (
   cppProcess: ChildProcessWithoutNullStreams,
   pythonProcess: ChildProcessWithoutNullStreams,
   Rp2040Port: SerialPort,
 ) => {
+  const state: MasterHandlerState = {
+    type: 'INIT',
+    data: {
+      cppWaiting: true,
+      pythonWaiting: true,
+      rp2040Waiting: false,
+    },
+  }
+
   const handlers: StdinHandlers = {
     cpp: (command) => {
+      state.data.cppWaiting = true
       console.log('C++ request -> ' + command)
       cppProcess.stdin.write(command + '\n')
     },
     py: (command) => {
+      state.data.pythonWaiting = true
       console.log('Python request -> ' + command)
       pythonProcess.stdin.write(command + '\n')
     },
@@ -23,50 +41,58 @@ export const MasterHandler = (
     },
   }
 
-  const state: MasterHandlerState = {
-    type: 'INIT',
-    data: {
-      cppWaiting: true,
-      pythonWaiting: true,
-      currentNeckHAngle: 2048,
-      currentNeckVAngle: 2048,
-    },
-  }
-
-  const commonUpdate = ({cppMsg, pythonMsg, rp2040msg: _}: UpdaterMsg) => {
-    if (cppMsg?.includes('INIT')) {
-      state.data.cppWaiting = false
+  const commonUpdate = ({cppMsg, pythonMsg, rp2040msg}: UpdaterMsg) => {
+    if (rp2040msg?.includes('PING')) {
+      handlers.rp2040('DRAW_LOADING')
     }
-    if (pythonMsg?.includes('INIT')) {
-      state.data.pythonWaiting = false
+    if (rp2040msg?.includes('READ_IMU')) {
+      ReceiveReadIMUHandler({state, handlers, msg: rp2040msg})
     }
-    if (cppMsg?.includes('PING')) {
-      state.data.cppWaiting = false
+    if (rp2040msg?.includes('READ_TOF')) {
+      ReceiveReadTOFHandler({state, handlers, msg: rp2040msg})
     }
-    if (pythonMsg?.includes('PING')) {
-      state.data.pythonWaiting = false
+    if (cppMsg?.includes('SERVOS_QUERY')) {
+      ReceiveServosQueryHandler({
+        state,
+        handlers,
+        msg: cppMsg,
+      })
     }
     if (pythonMsg?.includes('READ_CAMERA')) {
-      setTimeout(() => handlers.py('READ_CAMERA'), 100)
       ReceiveReadCameraHandler({
         state,
-        pythonMsg,
         handlers,
+        msg: pythonMsg,
       })
     }
 
-    if (!state.data.pythonWaiting && !state.data.cppWaiting) {
-      switch (state.type) {
+    if (
+      !state.data.pythonWaiting &&
+      !state.data.cppWaiting &&
+      !state.data.rp2040Waiting
+    ) {
+      const currentStateType = state.type
+      switch (currentStateType) {
         case 'INIT':
           state.type = 'PINGING'
-          handlers.cpp('PING')
-          handlers.cpp('SERVOS_QUERY')
+          state.data.rp2040Waiting = true
           handlers.py('PING')
+          handlers.cpp('PING')
+          handlers.rp2040('PING')
+          handlers.cpp('SERVOS_QUERY')
+
         case 'PINGING':
           state.type = 'READY'
-          state.data.pythonWaiting = true
+          handlers.py('READ_CAMERA')
+
+        case 'READY':
+          MoveHeadHandler({state, handlers})
+          handlers.cpp('SERVOS_QUERY')
           handlers.py('READ_CAMERA')
       }
+
+      currentStateType !== state.type &&
+        console.log('New state type -> ', state.type)
     }
   }
 
@@ -75,8 +101,9 @@ export const MasterHandler = (
     const lines = output.split('\n')
     lines.forEach((line) => {
       if (line !== '') {
-        console.log('C++ response <- : ' + line)
+        console.log('C++ response <- ' + line)
         try {
+          state.data.cppWaiting = false
           commonUpdate({cppMsg: line})
         } catch (err) {
           console.error(err)
@@ -90,8 +117,9 @@ export const MasterHandler = (
     const lines = output.split('\n')
     lines.forEach((line) => {
       if (line !== '') {
-        console.log('Python response <- : ' + line)
+        console.log('Python response <- ' + line)
         try {
+          state.data.pythonWaiting = false
           commonUpdate({pythonMsg: line})
         } catch (err) {
           console.error(err)
@@ -105,8 +133,9 @@ export const MasterHandler = (
     const lines = output.split('\n')
     lines.forEach((line) => {
       if (line !== '') {
-        console.log('rp2040 RESPONSE <-', line)
+        console.log('rp2040 RESPONSE <- ', line)
         try {
+          state.data.rp2040Waiting = false
           commonUpdate({rp2040msg: line})
         } catch (err) {
           console.error(err)
