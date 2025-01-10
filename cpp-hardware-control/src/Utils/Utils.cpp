@@ -62,9 +62,43 @@ void handleQueryServoPositions(STS STServo, int NUM_SERVOS) {
   }
 
   std::ostringstream output;
-  output << "SERVOS_QUERY: {";
+  output << "SERVOS_QUERY_POSITIONS: {";
   for (int i = 1; i <= NUM_SERVOS; i++) {
     output << "\"" << i << "\"" << ": " << servoPositions[i]
+           << (i <= NUM_SERVOS - 1 ? ", " : "");
+  }
+  output << "}" << std::endl;
+  std::cout << output.str();
+}
+
+void handleQueryServoMoving(STS STServo, int NUM_SERVOS) {
+  bool servoMoving[NUM_SERVOS];
+  for (u8 id = 1; id <= NUM_SERVOS; id++) {
+    bool moving = STServo.readByte(id, STS_MOVING);
+    servoMoving[id] = moving;
+  }
+
+  std::ostringstream output;
+  output << "SERVOS_QUERY_MOVING: {";
+  for (int i = 1; i <= NUM_SERVOS; i++) {
+    output << "\"" << i << "\"" << ": " << servoMoving[i]
+           << (i <= NUM_SERVOS - 1 ? ", " : "");
+  }
+  output << "}" << std::endl;
+  std::cout << output.str();
+}
+
+void handleQueryServoSpeed(STS STServo, int NUM_SERVOS) {
+  int servoSpeed[NUM_SERVOS];
+  for (u8 id = 1; id <= NUM_SERVOS; id++) {
+    int speed = STServo.readWord(id, STS_PRESENT_SPEED_L);
+    servoSpeed[id] = speed;
+  }
+
+  std::ostringstream output;
+  output << "SERVOS_QUERY_SPEED: {";
+  for (int i = 1; i <= NUM_SERVOS; i++) {
+    output << "\"" << i << "\"" << ": " << servoSpeed[i]
            << (i <= NUM_SERVOS - 1 ? ", " : "");
   }
   output << "}" << std::endl;

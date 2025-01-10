@@ -18,5 +18,8 @@ const std::string reset = "\033[0m";
 
 void handlePing(STS STServo, int NUM_SERVOS);
 void handleQueryServoPositions(STS STServo, int NUM_SERVOS);
+void handleQueryServoMoving(STS STServo, int NUM_SERVOS);
+void handleQueryServoSpeed(STS STServo, int NUM_SERVOS);
+
 void handleSetServoPositions(STS STServo, const std::string& command);
 #endif

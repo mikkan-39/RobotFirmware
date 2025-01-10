@@ -1,10 +1,12 @@
 export type MasterHandlerState = {
-  type: 'INIT' | 'PINGING' | 'READY'
+  type: 'INIT' | 'PINGING' | 'READY' | 'SITTING'
   data: {
     cppWaiting: boolean
     pythonWaiting: boolean
     rp2040Waiting: boolean
     lastServoPositions?: Record<number, number>
+    lastServoMoving?: Record<number, boolean>
+    lastServoSpeeds?: Record<number, number>
     lastYoloDetectionResult?: YoloDetectionResults
     lastIMUData?: IMUData
     lastTOFData?: number
@@ -13,7 +15,9 @@ export type MasterHandlerState = {
 
 export type CppStdinMsg =
   | 'PING'
-  | 'SERVOS_QUERY'
+  | 'SERVOS_QUERY_POSITIONS'
+  | 'SERVOS_QUERY_MOVING'
+  | 'SERVOS_QUERY_SPEED'
   | 'EXIT'
   | `SET_SERVO_POS${string}`
 export type CppStdinHandler = (msg: CppStdinMsg) => void

@@ -6,9 +6,10 @@ import {
   ReceiveReadCameraHandler,
   ReceiveReadIMUHandler,
   ReceiveReadTOFHandler,
-  ReceiveServosQueryHandler,
+  ReceiveServosQueryMovingHandler,
+  ReceiveServosQueryPositionsHandler,
+  ReceiveServosQuerySpeedHandler,
 } from './handlers'
-import {off} from 'process'
 
 export const MasterHandler = (
   cppProcess: ChildProcessWithoutNullStreams,
@@ -20,7 +21,7 @@ export const MasterHandler = (
     data: {
       cppWaiting: true,
       pythonWaiting: true,
-      rp2040Waiting: false,
+      rp2040Waiting: false, // no init msg as rp2040 boots first anyway
     },
   }
 
@@ -36,6 +37,9 @@ export const MasterHandler = (
       pythonProcess.stdin.write(command + '\n')
     },
     rp2040: (command) => {
+      if (!command.includes('DRAW')) {
+        state.data.rp2040Waiting = true
+      }
       console.log('RP2040 request -> ' + command)
       Rp2040Port.write(command + '\n')
     },
@@ -51,8 +55,22 @@ export const MasterHandler = (
     if (rp2040msg?.includes('READ_TOF')) {
       ReceiveReadTOFHandler({state, handlers, msg: rp2040msg})
     }
-    if (cppMsg?.includes('SERVOS_QUERY')) {
-      ReceiveServosQueryHandler({
+    if (cppMsg?.includes('SERVOS_QUERY_POSITIONS')) {
+      ReceiveServosQueryPositionsHandler({
+        state,
+        handlers,
+        msg: cppMsg,
+      })
+    }
+    if (cppMsg?.includes('SERVOS_QUERY_MOVING')) {
+      ReceiveServosQueryMovingHandler({
+        state,
+        handlers,
+        msg: cppMsg,
+      })
+    }
+    if (cppMsg?.includes('SERVOS_QUERY_SPEED')) {
+      ReceiveServosQuerySpeedHandler({
         state,
         handlers,
         msg: cppMsg,
@@ -75,20 +93,20 @@ export const MasterHandler = (
       switch (currentStateType) {
         case 'INIT':
           state.type = 'PINGING'
-          state.data.rp2040Waiting = true
           handlers.py('PING')
           handlers.cpp('PING')
           handlers.rp2040('PING')
-          handlers.cpp('SERVOS_QUERY')
 
         case 'PINGING':
           state.type = 'READY'
-          handlers.py('READ_CAMERA')
+          handlers.cpp('SERVOS_QUERY_POSITIONS')
+          handlers.rp2040('READ_IMU')
 
-        case 'READY':
+        default:
           MoveHeadHandler({state, handlers})
-          handlers.cpp('SERVOS_QUERY')
+          handlers.cpp('SERVOS_QUERY_POSITIONS')
           handlers.py('READ_CAMERA')
+          handlers.rp2040('READ_IMU')
       }
 
       currentStateType !== state.type &&

@@ -54,8 +54,12 @@ int main() {
 
     if (command == "PING") {
       handlePing(STServo, NUM_SERVOS);
-    } else if (command == "SERVOS_QUERY") {
+    } else if (command == "SERVOS_QUERY_POSITIONS") {
       handleQueryServoPositions(STServo, NUM_SERVOS);
+    } else if (command == "SERVOS_QUERY_MOVING") {
+      handleQueryServoMoving(STServo, NUM_SERVOS);
+    } else if (command == "SERVOS_QUERY_SPEED") {
+      handleQueryServoSpeed(STServo, NUM_SERVOS);
     } else if (command.rfind("SET_SERVO_POS", 0) == 0) {
       handleSetServoPositions(STServo, command);
     } else if (command == "EXIT") {

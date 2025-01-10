@@ -27,10 +27,31 @@ export const ReceiveReadCameraHandler = ({state, msg}: CommonHandlerArgs) => {
   state.data.lastYoloDetectionResult = results
 }
 
-export const ReceiveServosQueryHandler = ({state, msg}: CommonHandlerArgs) => {
-  const dataString = msg.replace('SERVOS_QUERY: ', '')
+export const ReceiveServosQueryPositionsHandler = ({
+  state,
+  msg,
+}: CommonHandlerArgs) => {
+  const dataString = msg.replace('SERVOS_QUERY_POSITIONS: ', '')
   const results = JSON.parse(dataString) as Record<number, number>
   state.data.lastServoPositions = results
+}
+
+export const ReceiveServosQueryMovingHandler = ({
+  state,
+  msg,
+}: CommonHandlerArgs) => {
+  const dataString = msg.replace('SERVOS_QUERY_MOVING: ', '')
+  const results = JSON.parse(dataString) as Record<number, boolean>
+  state.data.lastServoMoving = results
+}
+
+export const ReceiveServosQuerySpeedHandler = ({
+  state,
+  msg,
+}: CommonHandlerArgs) => {
+  const dataString = msg.replace('SERVOS_QUERY_SPEED: ', '')
+  const results = JSON.parse(dataString) as Record<number, number>
+  state.data.lastServoSpeeds = results
 }
 
 export const ReceiveReadIMUHandler = ({state, msg}: CommonHandlerArgs) => {
