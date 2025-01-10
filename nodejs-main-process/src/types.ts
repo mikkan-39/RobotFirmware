@@ -10,6 +10,7 @@ export type MasterHandlerState = {
     lastYoloDetectionResult?: YoloDetectionResults
     lastIMUData?: IMUData
     lastTOFData?: number
+    isRobotSitting?: boolean
   }
 }
 

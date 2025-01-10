@@ -8,6 +8,7 @@ import {
   StdinHandlers,
   YoloDetectionResults,
 } from './types'
+import {isRobotSitting} from './utils'
 
 type CommonHandlerArgs = {
   state: MasterHandlerState
@@ -34,6 +35,7 @@ export const ReceiveServosQueryPositionsHandler = ({
   const dataString = msg.replace('SERVOS_QUERY_POSITIONS: ', '')
   const results = JSON.parse(dataString) as Record<number, number>
   state.data.lastServoPositions = results
+  state.data.isRobotSitting = isRobotSitting(results)
 }
 
 export const ReceiveServosQueryMovingHandler = ({
@@ -55,13 +57,17 @@ export const ReceiveServosQuerySpeedHandler = ({
 }
 
 export const ReceiveReadIMUHandler = ({state, msg}: CommonHandlerArgs) => {
-  const dataString = msg.replace('READ_IMU: ', '')
+  const dataString = msg
+    .replace('READ_IMU: ', '')
+    .replace(/([a-zA-Z0-9_]+)(?=:)/g, '"$1"')
   const results = JSON.parse(dataString) as IMUData
   state.data.lastIMUData = results
 }
 
 export const ReceiveReadTOFHandler = ({state, msg}: CommonHandlerArgs) => {
-  const dataString = msg.replace('READ_TOF: ', '')
+  const dataString = msg
+    .replace('READ_TOF: ', '')
+    .replace(/([a-zA-Z0-9_]+)(?=:)/g, '"$1"')
   const results = JSON.parse(dataString) as {distance: number}
   state.data.lastTOFData = results.distance
 }
