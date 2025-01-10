@@ -20,7 +20,8 @@ export type CppStdinMsg =
   | 'SERVOS_QUERY_MOVING'
   | 'SERVOS_QUERY_SPEED'
   | 'EXIT'
-  | `SET_SERVO_POS${string}`
+  | `SET_SERVO_${ServoMoveType}${string}`
+
 export type CppStdinHandler = (msg: CppStdinMsg) => void
 
 export type PythonStdinMsg = 'PING' | 'READ_CAMERA' | 'EXIT'
@@ -86,6 +87,13 @@ export type IMUData = {
   ay: number
   az: number
 }
+
+export type ServoMoveType =
+  | 'POS'
+  | 'SPEED'
+  | 'TORQUE'
+  | 'ENABLED'
+  | 'ACCELERATION'
 
 export const ServoIDs = {
   SHOULDER_MAIN_R: 1,

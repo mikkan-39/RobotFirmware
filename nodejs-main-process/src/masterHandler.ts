@@ -1,5 +1,5 @@
 import type {ChildProcessWithoutNullStreams} from 'child_process'
-import {MasterHandlerState, UpdaterMsg, StdinHandlers} from './types'
+import {MasterHandlerState, UpdaterMsg, StdinHandlers, ServoIDs} from './types'
 import {SerialPort} from 'serialport'
 import {
   MoveHeadHandler,
@@ -10,6 +10,7 @@ import {
   ReceiveServosQueryPositionsHandler,
   ReceiveServosQuerySpeedHandler,
 } from './handlers'
+import {makeMoveServosCommand} from './commands'
 
 export const MasterHandler = (
   cppProcess: ChildProcessWithoutNullStreams,
@@ -27,7 +28,9 @@ export const MasterHandler = (
 
   const handlers: StdinHandlers = {
     cpp: (command) => {
-      state.data.cppWaiting = true
+      if (!command.includes('SET_SERVO')) {
+        state.data.cppWaiting = true
+      }
       console.log('C++ request -> ' + command)
       cppProcess.stdin.write(command + '\n')
     },
@@ -99,6 +102,15 @@ export const MasterHandler = (
 
         case 'PINGING':
           state.type = 'READY'
+          handlers.cpp(
+            makeMoveServosCommand(
+              {
+                [ServoIDs.HEAD_HORIZONTAL]: 100,
+                [ServoIDs.HEAD_VERTICAL]: 100,
+              },
+              'TORQUE',
+            ),
+          )
           handlers.cpp('SERVOS_QUERY_POSITIONS')
           handlers.rp2040('READ_IMU')
 

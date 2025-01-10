@@ -110,13 +110,23 @@ void handleSetServoPositions(STS STServo, const std::string& command) {
   std::string commandType;
   iss >> commandType;
 
-  if (commandType != "SET_SERVO_POS") {
-    std::cerr << "Unknown command type: " << commandType << std::endl;
-    return;
+  int regAddress = STS_GOAL_POSITION_L;
+
+  if (commandType == "SET_SERVO_SPEED") {
+    regAddress = STS_GOAL_SPEED_L;
+  }
+  if (commandType == "SET_SERVO_ENABLED") {
+    regAddress = STS_TORQUE_ENABLE;
+  }
+  if (commandType == "SET_SERVO_TORQUE") {
+    regAddress = STS_TORQUE_LIMIT_L;
+  }
+  if (commandType == "SET_SERVO_ACCELERATION") {
+    regAddress = STS_ACC;
   }
 
   std::vector<u8> servoIDs;
-  std::vector<u16> positions;
+  std::vector<u16> values;
 
   std::string pair;
   while (iss >> pair) {
@@ -127,16 +137,31 @@ void handleSetServoPositions(STS STServo, const std::string& command) {
     }
 
     u8 id = static_cast<u8>(std::stoi(pair.substr(0, equalPos)));
-    u16 position = static_cast<u16>(std::stoi(pair.substr(equalPos + 1)));
+    u16 value = static_cast<u16>(std::stoi(pair.substr(equalPos + 1)));
 
     servoIDs.push_back(id);
-    positions.push_back(position);
+    values.push_back(value);
   }
 
-  if (servoIDs.size() == 1) {
-    STServo.WritePosition(servoIDs[0], positions[0]);
-  } else if (!servoIDs.empty()) {
-    STServo.SyncWritePositions(servoIDs.data(), servoIDs.size(),
-                               positions.data());
+  // Either 8 or 16-bit values
+  if (regAddress == STS_TORQUE_ENABLE || regAddress == STS_ACC) {
+    std::vector<uint8_t> values_u8;
+    for (uint16_t value : values) {
+      values_u8.push_back(
+          static_cast<uint8_t>(value & 0xFF));  // Keep only the lower 8 bits
+    }
+    if (servoIDs.size() == 1) {
+      STServo.writeByte(servoIDs[0], regAddress, values[0]);
+    } else if (!servoIDs.empty()) {
+      STServo.SyncWriteByte(servoIDs.data(), servoIDs.size(), values_u8.data(),
+                            regAddress);
+    }
+  } else {
+    if (servoIDs.size() == 1) {
+      STServo.writeWord(servoIDs[0], regAddress, values[0]);
+    } else if (!servoIDs.empty()) {
+      STServo.SyncWriteWord(servoIDs.data(), servoIDs.size(), values.data(),
+                            regAddress);
+    }
   }
 }

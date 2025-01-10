@@ -35,7 +35,7 @@ export const ReceiveServosQueryPositionsHandler = ({
   const dataString = msg.replace('SERVOS_QUERY_POSITIONS: ', '')
   const results = JSON.parse(dataString) as Record<number, number>
   state.data.lastServoPositions = results
-  state.data.isRobotSitting = isRobotSitting(results)
+  state.data.isRobotSitting = isRobotSitting(state)
 }
 
 export const ReceiveServosQueryMovingHandler = ({
@@ -89,7 +89,7 @@ export const MoveHeadHandler = ({
     lastYoloDetectionResult?.find((item) => item.name === 'face') ||
     lastYoloDetectionResult?.find((item) => item.name === 'person')
   if (!priorityObject) {
-    handlers.rp2040(makeDrawEyesCommand({radius: 75}))
+    handlers.rp2040(makeDrawEyesCommand({radius: 75, speed: 1}))
     return
   }
   const priorityObjectX =
@@ -106,7 +106,7 @@ export const MoveHeadHandler = ({
       radius: 90,
       x: (120 - 120 * offsetX * 0.75).toFixed(),
       y: (120 + 120 * offsetY * 0.75).toFixed(),
-      speed: 10,
+      speed: 3,
     }),
   )
 

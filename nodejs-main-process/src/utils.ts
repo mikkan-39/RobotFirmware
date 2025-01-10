@@ -1,4 +1,5 @@
 import {writeFile, readFileSync} from 'fs'
+import {MasterHandlerState} from './types'
 
 export const saveJSON = (
   object: Record<string | number, any>,
@@ -71,12 +72,40 @@ export const comparePositions = (
   return sumOfSquares / coefficient < 1
 }
 
-export const isRobotSitting = (
-  currentPosition: Record<number, number>,
-): boolean => {
-  if (!sittingPosition) {
+// Check if the robot is upright
+function isUpright(
+  state: MasterHandlerState,
+  angleThreshold: number = 10,
+  gyroThreshold: number = 0.1,
+): boolean {
+  const {lastIMUData: imu} = state.data
+  if (!imu) {
     return false
   }
 
-  return comparePositions(currentPosition, sittingPosition)
+  const isAngleUpright =
+    Math.abs(imu.roll) <= angleThreshold &&
+    Math.abs(imu.pitch) <= angleThreshold
+  const isGyroStable =
+    Math.abs(imu.gx) <= gyroThreshold &&
+    Math.abs(imu.gy) <= gyroThreshold &&
+    Math.abs(imu.gz) <= gyroThreshold
+
+  // Return true if both conditions are satisfied
+  return isAngleUpright && isGyroStable
+}
+
+export const isRobotSitting = (state: MasterHandlerState): boolean => {
+  if (
+    !sittingPosition ||
+    !state.data.lastServoPositions ||
+    !state.data.lastIMUData
+  ) {
+    return false
+  }
+
+  return (
+    comparePositions(state.data.lastServoPositions, sittingPosition) &&
+    isUpright(state)
+  )
 }

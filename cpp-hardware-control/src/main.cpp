@@ -60,7 +60,7 @@ int main() {
       handleQueryServoMoving(STServo, NUM_SERVOS);
     } else if (command == "SERVOS_QUERY_SPEED") {
       handleQueryServoSpeed(STServo, NUM_SERVOS);
-    } else if (command.rfind("SET_SERVO_POS", 0) == 0) {
+    } else if (command.rfind("SET_SERVO", 0) == 0) {
       handleSetServoPositions(STServo, command);
     } else if (command == "EXIT") {
       std::cout << "EXIT: Exiting C++..." << std::endl;

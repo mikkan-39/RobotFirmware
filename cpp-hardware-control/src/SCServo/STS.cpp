@@ -49,12 +49,16 @@ int STS::WritePosSpeedAccAsync(u8 ID, u16 Position, u16 Speed, u8 ACC) {
   return regWrite(ID, STS_ACC, bBuf, 7);
 }
 
-void STS::SyncWritePositions(u8 ID[], u8 IDN, u16 Position[]) {
+void STS::SyncWriteWord(u8 ID[], u8 IDN, u16 Values[], u8 MemAddr) {
   u8 offbuf[2 * IDN];
   for (u8 i = 0; i < IDN; i++) {
-    Host2SCS(offbuf + i * 2, offbuf + i * 2 + 1, Position[i]);
+    Host2SCS(offbuf + i * 2, offbuf + i * 2 + 1, Values[i]);
   }
-  syncWrite(ID, IDN, STS_GOAL_POSITION_L, offbuf, 2);
+  syncWrite(ID, IDN, MemAddr, offbuf, 2);
+}
+
+void STS::SyncWriteByte(u8 ID[], u8 IDN, u8 Values[], u8 MemAddr) {
+  syncWrite(ID, IDN, MemAddr, Values, 2);
 }
 
 int STS::WheelMode(u8 ID) { return writeByte(ID, STS_MODE, 1); }

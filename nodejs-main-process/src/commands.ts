@@ -1,4 +1,4 @@
-import {DrawEyesArgs, DrawEyesArgsEnum, ServoIDs} from './types'
+import {DrawEyesArgs, DrawEyesArgsEnum, ServoIDs, ServoMoveType} from './types'
 
 export function typedKeys<T extends Object>(obj: T): (keyof T)[] {
   return Object.keys(obj) as (keyof T)[]
@@ -6,27 +6,30 @@ export function typedKeys<T extends Object>(obj: T): (keyof T)[] {
 
 export const makeMoveServosCommand = (
   servoPositions:
-    | {id: number; position: number}
-    | {ids: number[]; positions: number[]}
+    | {id: number; value: number}
+    | {ids: number[]; values: number[]}
     | Record<number, number>,
-): `SET_SERVO_POS ${string}` => {
+  type: ServoMoveType = 'POS',
+): `SET_SERVO_${ServoMoveType}${string}` => {
+  const template = `SET_SERVO_${type}` as `SET_SERVO_${ServoMoveType}`
+
   // {id: number; position: number}
   if ('id' in servoPositions) {
-    const {id, position} = servoPositions
-    return `SET_SERVO_POS ${id}=${position.toFixed()}`
+    const {id, value} = servoPositions
+    return `${template} ${id}=${value.toFixed()}`
   }
 
   // {ids: number[]; positions: number[]}
   if ('ids' in servoPositions) {
-    const {ids, positions} = servoPositions
-    if (ids.length !== positions.length) {
+    const {ids, values} = servoPositions
+    if (ids.length !== values.length) {
       throw new RangeError('Servo ids and positions mismatch')
     }
-    return `SET_SERVO_POS ${ids.map((id, index) => `${id}=${positions[index]?.toFixed()}`).join(' ')}`
+    return `${template} ${ids.map((id, index) => `${id}=${values[index]?.toFixed()}`).join(' ')}`
   }
 
   // Record<number, number>,
-  return `SET_SERVO_POS ${typedKeys(servoPositions)
+  return `${template} ${typedKeys(servoPositions)
     .map((id) => `${id}=${servoPositions[id]?.toFixed()}`)
     .join(' ')}`
 }

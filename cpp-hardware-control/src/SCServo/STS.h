@@ -68,9 +68,13 @@ class STS : public SCSerial {
       u8 ACC = 0);  // position write asynchronously for
                     // single servo(call RegWriteAction
                     // to action)
-  virtual void SyncWritePositions(
-      u8 ID[], u8 IDN, u16 Position[]);  // write synchronously for multi servos
-  virtual int WheelMode(u8 ID);          // speed loop mode
+  virtual void SyncWriteByte(
+      u8 ID[], u8 IDN, u8 Values[],
+      u8 MemAddr);  // write synchronously for multi servos
+  virtual void SyncWriteWord(
+      u8 ID[], u8 IDN, u16 Values[],
+      u8 MemAddr);               // write synchronously for multi servos
+  virtual int WheelMode(u8 ID);  // speed loop mode
   virtual int WriteSpe(u8 ID, s16 Speed,
                        u8 ACC = 0);            // speed loop mode ctrl command
   virtual int EnableTorque(u8 ID, u8 Enable);  // torque ctrl command
