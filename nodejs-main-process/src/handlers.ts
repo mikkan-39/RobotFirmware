@@ -68,21 +68,21 @@ export const ReceiveReadIMUHandler = ({state, msg}: CommonHandlerArgs) => {
   const data = JSON.parse(dataString) as IMUData
 
   const wrappedAngle = (angle: number) =>
-    angle < 0 ? angle + 180 : 180 - angle
+    angle < 0 ? -angle - 180 : 180 - angle
 
-  const flippedIMUData = {
-    roll: wrappedAngle(-data.roll), // Negate and wrap roll
-    pitch: wrappedAngle(-data.pitch), // Negate and wrap pitch
-    yaw: wrappedAngle(-data.yaw), // Yaw can stay the same, or also adjusted
-    gx: -data.gx, // Negate gyroscope x
-    gy: -data.gy, // Negate gyroscope y
-    gz: -data.gz, // Negate gyroscope z
-    ax: -data.ax, // Negate accelerometer x
-    ay: -data.ay, // Negate accelerometer y
-    az: -data.az, // Negate accelerometer z
+  const convertedIMUData = {
+    roll: -data.pitch,
+    pitch: -data.roll,
+    yaw: -data.yaw,
+    gx: -data.gx,
+    gy: -data.gy,
+    gz: -data.gz,
+    ax: -data.ax,
+    ay: -data.ay,
+    az: -data.az,
   }
 
-  state.data.lastIMUData = flippedIMUData
+  state.data.lastIMUData = convertedIMUData
 }
 
 export const ReceiveReadTOFHandler = ({state, msg}: CommonHandlerArgs) => {

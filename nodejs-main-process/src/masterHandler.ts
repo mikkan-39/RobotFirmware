@@ -31,6 +31,10 @@ export const MasterHandler = (
       cppWaiting: true,
       pythonWaiting: true,
       rp2040Waiting: false, // no init msg as rp2040 boots first anyway
+      lastServoPositions: {},
+      lastServoMoving: {},
+      lastServoSpeeds: {},
+      lastYoloDetectionResult: [],
     },
   }
 
@@ -44,14 +48,14 @@ export const MasterHandler = (
     },
     py: (command) => {
       state.data.pythonWaiting = true
-      // console.log('Python request -> ' + command)
+      console.log('Python request -> ' + command)
       pythonProcess.stdin.write(command + '\n')
     },
     rp2040: (command) => {
       if (!command.includes('DRAW')) {
         state.data.rp2040Waiting = true
       }
-      // console.log('RP2040 request -> ' + command)
+      console.log('RP2040 request -> ' + command)
       Rp2040Port.write(command + '\n')
     },
   }
@@ -112,7 +116,6 @@ export const MasterHandler = (
         case 'PINGING':
           state.type = 'UNKNOWN POSITION'
           handleResetServoSettings(handlers)
-          handlers.cpp('PING')
           handlers.cpp('SERVOS_QUERY_POSITIONS')
           handlers.rp2040('READ_IMU')
           break
@@ -121,8 +124,23 @@ export const MasterHandler = (
           if (state.data.isRobotSitting) state.type = 'SITTING'
 
         case 'SITTING':
+          console.log(isUpright(state))
           if (isUpright(state)) {
+            handlers.cpp(
+              makeMoveServosCommand(
+                {
+                  ...makeLegServoValues(200),
+                  [ServoIDs.KNEE_R]: 400,
+                  [ServoIDs.KNEE_L]: 400,
+                },
+                'SPEED',
+              ),
+            )
+            handlers.cpp(makeMoveServosCommand(makeLegServoValues(2048)))
+            state.type = 'READY'
           }
+
+        // case 'READY':
 
         default:
           MoveHeadHandler({state, handlers})
@@ -182,7 +200,7 @@ export const MasterHandler = (
     const lines = output.split('\n')
     lines.forEach((line) => {
       if (line !== '') {
-        // console.log('Python response <- ' + line)
+        console.log('Python response <- ' + line)
         try {
           state.data.pythonWaiting = false
           commonUpdate({pythonMsg: line})
@@ -198,7 +216,7 @@ export const MasterHandler = (
     const lines = output.split('\n')
     lines.forEach((line) => {
       if (line !== '') {
-        // console.log('rp2040 RESPONSE <- ', line)
+        console.log('rp2040 RESPONSE <- ', line)
         try {
           state.data.rp2040Waiting = false
           commonUpdate({rp2040msg: line})

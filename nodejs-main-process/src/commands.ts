@@ -8,7 +8,7 @@ export const makeMoveServosCommand = (
   servoPositions:
     | {id: number; value: number}
     | {ids: number[]; values: number[]}
-    | Record<number, number>,
+    | Record<number, number | undefined>,
   type: ServoMoveType = 'POS',
 ): `SET_SERVO_${ServoMoveType}${string}` => {
   const template = `SET_SERVO_${type}` as `SET_SERVO_${ServoMoveType}`
@@ -30,6 +30,7 @@ export const makeMoveServosCommand = (
 
   // Record<number, number>,
   return `${template} ${typedKeys(servoPositions)
+    .filter((id) => !!servoPositions[id])
     .map((id) => `${id}=${servoPositions[id]?.toFixed()}`)
     .join(' ')}`
 }

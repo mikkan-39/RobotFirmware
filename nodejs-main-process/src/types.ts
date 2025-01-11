@@ -4,10 +4,10 @@ export type MasterHandlerState = {
     cppWaiting: boolean
     pythonWaiting: boolean
     rp2040Waiting: boolean
-    lastServoPositions?: Record<number, number>
-    lastServoMoving?: Record<number, boolean>
-    lastServoSpeeds?: Record<number, number>
-    lastYoloDetectionResult?: YoloDetectionResults
+    lastServoPositions: Record<number, number>
+    lastServoMoving: Record<number, boolean>
+    lastServoSpeeds: Record<number, number>
+    lastYoloDetectionResult: YoloDetectionResults
     lastIMUData?: IMUData
     lastTOFData?: number
     isRobotSitting?: boolean

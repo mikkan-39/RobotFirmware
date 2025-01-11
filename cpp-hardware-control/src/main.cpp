@@ -44,6 +44,18 @@ int main() {
   std::signal(SIGINT, cleanupAndExit);   // Handle Ctrl+C
   std::signal(SIGTERM, cleanupAndExit);  // Handle termination signal
 
+  // STServo.unLockEprom(11);
+  // STServo.unLockEprom(12);
+  // STServo.unLockEprom(13);
+  // STServo.unLockEprom(14);
+
+  // STServo.writeByte(11, 0x5, 42);
+  // STServo.writeByte(12, 0x5, 43);
+  // STServo.writeByte(13, 0x5, 11);
+  // STServo.writeByte(14, 0x5, 12);
+  // STServo.writeByte(42, 0x5, 13);
+  // STServo.writeByte(43, 0x5, 14);
+  // return 0;
   std::string command;
   while (true) {
     std::getline(std::cin, command);  // Read command from stdin

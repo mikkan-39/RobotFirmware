@@ -46,7 +46,7 @@ export const convertToNumberRecord = <T>(
 export const comparePositions = (
   currentPosition: Record<number, number>,
   templatePosition: Record<number, number>,
-  coefficient: number = 125,
+  coefficient: number = 25,
 ): boolean => {
   let sumOfSquares = 0
 
