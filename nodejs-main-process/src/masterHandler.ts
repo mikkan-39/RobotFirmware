@@ -2,6 +2,8 @@ import type {ChildProcessWithoutNullStreams} from 'child_process'
 import {MasterHandlerState, UpdaterMsg, StdinHandlers, ServoIDs} from './types'
 import {SerialPort} from 'serialport'
 import {
+  handleResetServoSettings,
+  MirrorHandHandler,
   MoveHeadHandler,
   ReceiveReadCameraHandler,
   ReceiveReadIMUHandler,
@@ -11,6 +13,12 @@ import {
   ReceiveServosQuerySpeedHandler,
 } from './handlers'
 import {makeMoveServosCommand} from './commands'
+import {
+  isUpright,
+  makeGlobalServoValues,
+  makeLegServoValues,
+  sittingPosition,
+} from './utils'
 
 export const MasterHandler = (
   cppProcess: ChildProcessWithoutNullStreams,
@@ -36,14 +44,14 @@ export const MasterHandler = (
     },
     py: (command) => {
       state.data.pythonWaiting = true
-      console.log('Python request -> ' + command)
+      // console.log('Python request -> ' + command)
       pythonProcess.stdin.write(command + '\n')
     },
     rp2040: (command) => {
       if (!command.includes('DRAW')) {
         state.data.rp2040Waiting = true
       }
-      console.log('RP2040 request -> ' + command)
+      // console.log('RP2040 request -> ' + command)
       Rp2040Port.write(command + '\n')
     },
   }
@@ -99,30 +107,57 @@ export const MasterHandler = (
           handlers.py('PING')
           handlers.cpp('PING')
           handlers.rp2040('PING')
+          break
 
         case 'PINGING':
-          state.type = 'READY'
-          handlers.cpp(
-            makeMoveServosCommand(
-              {
-                [ServoIDs.HEAD_HORIZONTAL]: 100,
-                [ServoIDs.HEAD_VERTICAL]: 100,
-              },
-              'TORQUE',
-            ),
-          )
+          state.type = 'UNKNOWN POSITION'
+          handleResetServoSettings(handlers)
+          handlers.cpp('PING')
           handlers.cpp('SERVOS_QUERY_POSITIONS')
           handlers.rp2040('READ_IMU')
+          break
+
+        case 'UNKNOWN POSITION':
+          if (state.data.isRobotSitting) state.type = 'SITTING'
+
+        case 'SITTING':
+          if (isUpright(state)) {
+          }
 
         default:
           MoveHeadHandler({state, handlers})
+          MirrorHandHandler({state, handlers})
           handlers.cpp('SERVOS_QUERY_POSITIONS')
-          handlers.py('READ_CAMERA')
           handlers.rp2040('READ_IMU')
+          setTimeout(() => handlers.py('READ_CAMERA'), 50)
       }
 
-      currentStateType !== state.type &&
+      if (currentStateType !== state.type) {
         console.log('New state type -> ', state.type)
+        switch (state.type) {
+          case 'UNKNOWN POSITION':
+            handlers.cpp(
+              makeMoveServosCommand(
+                {
+                  [ServoIDs.HEAD_HORIZONTAL]: 100,
+                  [ServoIDs.HEAD_VERTICAL]: 100,
+                },
+                'TORQUE',
+              ),
+            )
+            handlers.cpp(
+              makeMoveServosCommand(
+                {
+                  ...makeLegServoValues(200),
+                  [ServoIDs.KNEE_R]: 400,
+                  [ServoIDs.KNEE_L]: 400,
+                },
+                'SPEED',
+              ),
+            )
+            handlers.cpp(makeMoveServosCommand(sittingPosition))
+        }
+      }
     }
   }
 
@@ -147,7 +182,7 @@ export const MasterHandler = (
     const lines = output.split('\n')
     lines.forEach((line) => {
       if (line !== '') {
-        console.log('Python response <- ' + line)
+        // console.log('Python response <- ' + line)
         try {
           state.data.pythonWaiting = false
           commonUpdate({pythonMsg: line})
@@ -163,7 +198,7 @@ export const MasterHandler = (
     const lines = output.split('\n')
     lines.forEach((line) => {
       if (line !== '') {
-        console.log('rp2040 RESPONSE <- ', line)
+        // console.log('rp2040 RESPONSE <- ', line)
         try {
           state.data.rp2040Waiting = false
           commonUpdate({rp2040msg: line})

@@ -22,4 +22,8 @@ void handleQueryServoMoving(STS STServo, int NUM_SERVOS);
 void handleQueryServoSpeed(STS STServo, int NUM_SERVOS);
 
 void handleSetServoPositions(STS STServo, const std::string& command);
+void handleSetServoSpeeds(STS STServo, const std::string& command);
+void handleSetServoTorque(STS STServo, const std::string& command);
+void handleSetServoEnabled(STS STServo, const std::string& command);
+
 #endif

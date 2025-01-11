@@ -8,7 +8,12 @@ import {
   StdinHandlers,
   YoloDetectionResults,
 } from './types'
-import {isRobotSitting} from './utils'
+import {
+  convertToNumberRecord,
+  isRobotSitting,
+  makeGlobalServoValues,
+  sittingPosition,
+} from './utils'
 
 type CommonHandlerArgs = {
   state: MasterHandlerState
@@ -60,8 +65,24 @@ export const ReceiveReadIMUHandler = ({state, msg}: CommonHandlerArgs) => {
   const dataString = msg
     .replace('READ_IMU: ', '')
     .replace(/([a-zA-Z0-9_]+)(?=:)/g, '"$1"')
-  const results = JSON.parse(dataString) as IMUData
-  state.data.lastIMUData = results
+  const data = JSON.parse(dataString) as IMUData
+
+  const wrappedAngle = (angle: number) =>
+    angle < 0 ? angle + 180 : 180 - angle
+
+  const flippedIMUData = {
+    roll: wrappedAngle(-data.roll), // Negate and wrap roll
+    pitch: wrappedAngle(-data.pitch), // Negate and wrap pitch
+    yaw: wrappedAngle(-data.yaw), // Yaw can stay the same, or also adjusted
+    gx: -data.gx, // Negate gyroscope x
+    gy: -data.gy, // Negate gyroscope y
+    gz: -data.gz, // Negate gyroscope z
+    ax: -data.ax, // Negate accelerometer x
+    ay: -data.ay, // Negate accelerometer y
+    az: -data.az, // Negate accelerometer z
+  }
+
+  state.data.lastIMUData = flippedIMUData
 }
 
 export const ReceiveReadTOFHandler = ({state, msg}: CommonHandlerArgs) => {
@@ -85,9 +106,16 @@ export const MoveHeadHandler = ({
 
   const {lastServoPositions, lastYoloDetectionResult} = state.data
 
-  const priorityObject =
-    lastYoloDetectionResult?.find((item) => item.name === 'face') ||
-    lastYoloDetectionResult?.find((item) => item.name === 'person')
+  const persons = lastYoloDetectionResult
+    ?.filter((item) => item.name === 'person')
+    ?.sort((a, b) => {
+      const aSize = (a.coords[2] - a.coords[0]) * (a.coords[3] - a.coords[1])
+      const bSize = (b.coords[2] - b.coords[0]) * (b.coords[3] - b.coords[1])
+      return aSize - bSize
+    })
+
+  const priorityObject = persons?.pop()
+
   if (!priorityObject) {
     handlers.rp2040(makeDrawEyesCommand({radius: 75, speed: 1}))
     return
@@ -133,4 +161,33 @@ export const MoveHeadHandler = ({
       }),
     )
   }
+}
+
+export const handleResetServoSettings = (handlers: StdinHandlers) => {
+  // handlers.cpp(makeMoveServosCommand(makeGlobalServoValues(0), 'ACCELERATION'))
+  handlers.cpp(makeMoveServosCommand(makeGlobalServoValues(0), 'TORQUE'))
+  handlers.cpp(makeMoveServosCommand(makeGlobalServoValues(0), 'SPEED'))
+}
+
+export const MirrorHandHandler = ({
+  state,
+  handlers,
+}: Omit<CommonHandlerArgs, 'msg'>) => {
+  const positions = state.data.lastServoPositions
+  handlers.cpp(
+    makeMoveServosCommand({
+      [ServoIDs.SHOULDER_MAIN_R]:
+        4096 - (positions?.[ServoIDs.SHOULDER_MAIN_L] ?? 2048),
+      [ServoIDs.SHOULDER_TILT_R]:
+        4096 - (positions?.[ServoIDs.SHOULDER_TILT_L] ?? 2048),
+      [ServoIDs.ELBOW_MAIN_R]:
+        4096 - (positions?.[ServoIDs.ELBOW_MAIN_L] ?? 2048),
+      [ServoIDs.ELBOW_ROTATE_R]:
+        4096 - (positions?.[ServoIDs.ELBOW_ROTATE_L] ?? 2048),
+    }),
+  )
+}
+
+export const StandUpHandler = ({handlers}: Omit<CommonHandlerArgs, 'msg'>) => {
+  handlers.cpp(makeMoveServosCommand(convertToNumberRecord(sittingPosition)))
 }

@@ -1,5 +1,7 @@
 #include "SCSerial.h"
 
+#include <iostream>
+
 SCSerial::SCSerial() {
   IOTimeOut = 100;
   serial_fd = -1;
@@ -73,7 +75,8 @@ void SCSerial::writeSCS(unsigned char bDat) {
 // Flush the read buffer
 void SCSerial::rFlushSCS() {
   while (serialDataAvail(serial_fd)) {
-    serialGetchar(serial_fd);  // Discard any unread data
+    unsigned char dat = serialGetchar(serial_fd);  // Discard any unread data
+    std::cout << "FlushingData " << std::to_string(dat) << std::endl;
   }
 }
 

@@ -25,8 +25,8 @@
 #define ID_ELBOW_ROTATE_L 6
 #define ID_ELBOW_MAIN_L 8
 #define ID_HIP_ROTATE_L 10
-#define ID_HIP_TILT_L 14  // oopsie
-#define ID_HIP_MAIN_L 12
+#define ID_HIP_TILT_L 12
+#define ID_HIP_MAIN_L 14
 #define ID_KNEE_L 16
 #define ID_FOOT_MAIN_L 18
 #define ID_FOOT_TILT_L 20

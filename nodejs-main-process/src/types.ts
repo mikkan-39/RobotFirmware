@@ -1,5 +1,5 @@
 export type MasterHandlerState = {
-  type: 'INIT' | 'PINGING' | 'READY' | 'SITTING'
+  type: 'INIT' | 'PINGING' | 'READY' | 'SITTING' | 'UNKNOWN POSITION'
   data: {
     cppWaiting: boolean
     pythonWaiting: boolean
@@ -112,8 +112,8 @@ export const ServoIDs = {
   ELBOW_ROTATE_L: 6,
   ELBOW_MAIN_L: 8,
   HIP_ROTATE_L: 10,
-  HIP_TILT_L: 14,
-  HIP_MAIN_L: 12,
+  HIP_TILT_L: 12,
+  HIP_MAIN_L: 14,
   KNEE_L: 16,
   FOOT_MAIN_L: 18,
   FOOT_TILT_L: 20,

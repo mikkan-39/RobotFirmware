@@ -60,8 +60,14 @@ int main() {
       handleQueryServoMoving(STServo, NUM_SERVOS);
     } else if (command == "SERVOS_QUERY_SPEED") {
       handleQueryServoSpeed(STServo, NUM_SERVOS);
-    } else if (command.rfind("SET_SERVO", 0) == 0) {
+    } else if (command.rfind("SET_SERVO_POS", 0) == 0) {
       handleSetServoPositions(STServo, command);
+    } else if (command.rfind("SET_SERVO_SPEED", 0) == 0) {
+      handleSetServoSpeeds(STServo, command);
+    } else if (command.rfind("SET_SERVO_TORQUE", 0) == 0) {
+      handleSetServoTorque(STServo, command);
+    } else if (command.rfind("SET_SERVO_ENABLED", 0) == 0) {
+      handleSetServoEnabled(STServo, command);
     } else if (command == "EXIT") {
       std::cout << "EXIT: Exiting C++..." << std::endl;
       cleanupAndExit(0);

@@ -59,8 +59,9 @@ class STS : public SCSerial {
   STS(u8 End, u8 Level);
   virtual int WritePosSpeedAcc(u8 ID, s16 Position, u16 Speed,
                                u8 ACC = 0);  // general write for single servo
-  virtual int WritePosition(u8 ID, u16 Position);
+  virtual int WritePosition(u8 ID, s16 Position);
   virtual int WriteSpeed(u8 ID, u16 Speed);
+  virtual int WriteTorque(u8 ID, u16 Torque);
   virtual int WriteAcc(u8 ID, u8 ACC);
 
   virtual int WritePosSpeedAccAsync(

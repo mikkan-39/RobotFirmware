@@ -25,16 +25,26 @@ int STS::WritePosSpeedAcc(u8 ID, s16 Position, u16 Speed, u8 ACC) {
   return genWrite(ID, STS_ACC, bBuf, 7);
 }
 
-int STS::WritePosition(u8 ID, u16 Position) {
+int STS::WritePosition(u8 ID, s16 Position) {
+  if (Position < 0) {
+    Position = -Position;
+    Position |= (1 << 15);
+  }
   u8 bBuf[2];
-  Host2SCS(bBuf + 0, bBuf + 1, Position);
+  Host2SCS(&bBuf[0], &bBuf[1], Position);
   return genWrite(ID, STS_GOAL_POSITION_L, bBuf, 2);
 }
 
 int STS::WriteSpeed(u8 ID, u16 Speed) {
   u8 bBuf[2];
-  Host2SCS(bBuf + 0, bBuf + 1, Speed);
+  Host2SCS(&bBuf[0], &bBuf[1], Speed);
   return genWrite(ID, STS_GOAL_SPEED_L, bBuf, 2);
+}
+
+int STS::WriteTorque(u8 ID, u16 Torque) {
+  u8 bBuf[2];
+  Host2SCS(&bBuf[0], &bBuf[1], Torque);
+  return genWrite(ID, STS_TORQUE_LIMIT_L, bBuf, 2);
 }
 
 int STS::WriteAcc(u8 ID, u8 ACC) { return writeByte(ID, STS_ACC, ACC); }
@@ -58,7 +68,7 @@ void STS::SyncWriteWord(u8 ID[], u8 IDN, u16 Values[], u8 MemAddr) {
 }
 
 void STS::SyncWriteByte(u8 ID[], u8 IDN, u8 Values[], u8 MemAddr) {
-  syncWrite(ID, IDN, MemAddr, Values, 2);
+  syncWrite(ID, IDN, MemAddr, Values, 1);
 }
 
 int STS::WheelMode(u8 ID) { return writeByte(ID, STS_MODE, 1); }

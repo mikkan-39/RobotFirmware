@@ -13,9 +13,9 @@ const char* ServoNamesById[] = {
     "HIP_ROTATE_R",     // ID 9
     "HIP_ROTATE_L",     // ID 10
     "HIP_TILT_R",       // ID 11
-    "HIP_MAIN_L",       // ID 12
+    "HIP_TILT_L",       // ID 12
     "HIP_MAIN_R",       // ID 13
-    "HIP_TILT_L",       // ID 14
+    "HIP_MAIN_L",       // ID 14
     "KNEE_R",           // ID 15
     "KNEE_L",           // ID 16
     "FOOT_MAIN_R",      // ID 17
@@ -28,9 +28,15 @@ const char* ServoNamesById[] = {
 
 void handlePing(STS STServo, int NUM_SERVOS) {
   bool pingResponses[NUM_SERVOS];
+  int majors[NUM_SERVOS];
+  int minors[NUM_SERVOS];
   for (u8 id = 1; id <= NUM_SERVOS; id++) {
     bool initialized = STServo.Ping(id) != -1;
     pingResponses[id] = initialized;
+    if (initialized) {
+      majors[id] = STServo.readByte(id, 0);
+      minors[id] = STServo.readByte(id, 1);
+    }
   }
   // Create a stringstream to accumulate the output
   std::ostringstream output;
@@ -40,7 +46,9 @@ void handlePing(STS STServo, int NUM_SERVOS) {
       // Print "OK" for true responses
       output << std::left << std::setw(15)
              << green + "Servo " + std::to_string(i) << std::setw(15)
-             << ServoNamesById[i] << " OK" + reset << std::endl;
+             << ServoNamesById[i] << " OK "
+             << "Firmware ver: " << std::to_string(majors[i]) << "."
+             << std::to_string(minors[i]) << reset << std::endl;
     } else {
       // Print "WARNING" in yellow for false responses
       output << std::left << std::setw(15)
@@ -57,15 +65,17 @@ void handlePing(STS STServo, int NUM_SERVOS) {
 void handleQueryServoPositions(STS STServo, int NUM_SERVOS) {
   int servoPositions[NUM_SERVOS];
   for (u8 id = 1; id <= NUM_SERVOS; id++) {
-    int position = STServo.readWord(id, STS_PRESENT_POSITION_L);
+    int position = STServo.ReadPos(id);
     servoPositions[id] = position;
   }
 
   std::ostringstream output;
   output << "SERVOS_QUERY_POSITIONS: {";
   for (int i = 1; i <= NUM_SERVOS; i++) {
-    output << "\"" << i << "\"" << ": " << servoPositions[i]
-           << (i <= NUM_SERVOS - 1 ? ", " : "");
+    if (servoPositions[i] != -1) {
+      output << "\"" << i << "\"" << ": " << servoPositions[i]
+             << (i <= NUM_SERVOS - 1 ? ", " : "");
+    }
   }
   output << "}" << std::endl;
   std::cout << output.str();
@@ -74,7 +84,7 @@ void handleQueryServoPositions(STS STServo, int NUM_SERVOS) {
 void handleQueryServoMoving(STS STServo, int NUM_SERVOS) {
   bool servoMoving[NUM_SERVOS];
   for (u8 id = 1; id <= NUM_SERVOS; id++) {
-    bool moving = STServo.readByte(id, STS_MOVING);
+    bool moving = STServo.ReadMove(id);
     servoMoving[id] = moving;
   }
 
@@ -110,20 +120,35 @@ void handleSetServoPositions(STS STServo, const std::string& command) {
   std::string commandType;
   iss >> commandType;
 
-  int regAddress = STS_GOAL_POSITION_L;
+  std::vector<u8> servoIDs;
+  std::vector<u16> values;
 
-  if (commandType == "SET_SERVO_SPEED") {
-    regAddress = STS_GOAL_SPEED_L;
+  std::string pair;
+  while (iss >> pair) {
+    auto equalPos = pair.find('=');
+    if (equalPos == std::string::npos) {
+      std::cerr << "Malformed pair: " << pair << std::endl;
+      continue;
+    }
+
+    u8 id = static_cast<u8>(std::stoi(pair.substr(0, equalPos)));
+    s16 value = static_cast<s16>(std::stoi(pair.substr(equalPos + 1)));
+
+    STServo.WritePosition(id, value);
+    // servoIDs.push_back(id);
+    // values.push_back(value);
   }
-  if (commandType == "SET_SERVO_ENABLED") {
-    regAddress = STS_TORQUE_ENABLE;
-  }
-  if (commandType == "SET_SERVO_TORQUE") {
-    regAddress = STS_TORQUE_LIMIT_L;
-  }
-  if (commandType == "SET_SERVO_ACCELERATION") {
-    regAddress = STS_ACC;
-  }
+
+  // if (!servoIDs.empty()) {
+  //   STServo.SyncWriteWord(servoIDs.data(), servoIDs.size(), values.data(),
+  //                         STS_GOAL_POSITION_L);
+  // }
+}
+
+void handleSetServoSpeeds(STS STServo, const std::string& command) {
+  std::istringstream iss(command);
+  std::string commandType;
+  iss >> commandType;
 
   std::vector<u8> servoIDs;
   std::vector<u16> values;
@@ -139,29 +164,75 @@ void handleSetServoPositions(STS STServo, const std::string& command) {
     u8 id = static_cast<u8>(std::stoi(pair.substr(0, equalPos)));
     u16 value = static_cast<u16>(std::stoi(pair.substr(equalPos + 1)));
 
-    servoIDs.push_back(id);
-    values.push_back(value);
+    STServo.WriteSpeed(id, value);
+    // servoIDs.push_back(id);
+    // values.push_back(value);
   }
 
-  // Either 8 or 16-bit values
-  if (regAddress == STS_TORQUE_ENABLE || regAddress == STS_ACC) {
-    std::vector<uint8_t> values_u8;
-    for (uint16_t value : values) {
-      values_u8.push_back(
-          static_cast<uint8_t>(value & 0xFF));  // Keep only the lower 8 bits
+  // if (!servoIDs.empty()) {
+  //   STServo.SyncWriteWord(servoIDs.data(), servoIDs.size(), values.data(),
+  //                         STS_GOAL_SPEED_L);
+  // }
+}
+
+void handleSetServoTorque(STS STServo, const std::string& command) {
+  std::istringstream iss(command);
+  std::string commandType;
+  iss >> commandType;
+
+  std::vector<u8> servoIDs;
+  std::vector<u16> values;
+
+  std::string pair;
+  while (iss >> pair) {
+    auto equalPos = pair.find('=');
+    if (equalPos == std::string::npos) {
+      std::cerr << "Malformed pair: " << pair << std::endl;
+      continue;
     }
-    if (servoIDs.size() == 1) {
-      STServo.writeByte(servoIDs[0], regAddress, values[0]);
-    } else if (!servoIDs.empty()) {
-      STServo.SyncWriteByte(servoIDs.data(), servoIDs.size(), values_u8.data(),
-                            regAddress);
+
+    u8 id = static_cast<u8>(std::stoi(pair.substr(0, equalPos)));
+    u16 value = static_cast<u16>(std::stoi(pair.substr(equalPos + 1)));
+
+    if (value == 0) {
+      value = 1000;
     }
-  } else {
-    if (servoIDs.size() == 1) {
-      STServo.writeWord(servoIDs[0], regAddress, values[0]);
-    } else if (!servoIDs.empty()) {
-      STServo.SyncWriteWord(servoIDs.data(), servoIDs.size(), values.data(),
-                            regAddress);
-    }
+    STServo.WriteTorque(id, value);
+    // servoIDs.push_back(id);
+    // values.push_back(value);
   }
+
+  // if (!servoIDs.empty()) {
+  //   STServo.SyncWriteWord(servoIDs.data(), servoIDs.size(), values.data(),
+  //                         STS_TORQUE_LIMIT_L);
+  // }
+}
+
+void handleSetServoEnabled(STS STServo, const std::string& command) {
+  // std::istringstream iss(command);
+  // std::string commandType;
+  // iss >> commandType;
+
+  // std::vector<u8> servoIDs;
+  // std::vector<u8> values;
+
+  // std::string pair;
+  // while (iss >> pair) {
+  //   auto equalPos = pair.find('=');
+  //   if (equalPos == std::string::npos) {
+  //     std::cerr << "Malformed pair: " << pair << std::endl;
+  //     continue;
+  //   }
+
+  //   u8 id = static_cast<u8>(std::stoi(pair.substr(0, equalPos)));
+  //   u8 value = static_cast<u8>(std::stoi(pair.substr(equalPos + 1)));
+
+  //   servoIDs.push_back(id);
+  //   values.push_back(value);
+  // }
+
+  // if (!servoIDs.empty()) {
+  //   STServo.SyncWriteByte(servoIDs.data(), servoIDs.size(), values.data(),
+  //                         STS_TORQUE_ENABLE);
+  // }
 }
