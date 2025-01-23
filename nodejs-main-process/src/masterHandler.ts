@@ -5,20 +5,18 @@ import {
   handleResetServoSettings,
   MirrorHandHandler,
   MoveHeadHandler,
-  ReceiveReadCameraHandler,
-  ReceiveReadIMUHandler,
-  ReceiveReadTOFHandler,
-  ReceiveServosQueryMovingHandler,
-  ReceiveServosQueryPositionsHandler,
-  ReceiveServosQuerySpeedHandler,
 } from './handlers'
 import {makeMoveServosCommand} from './commands'
-import {
-  isUpright,
-  makeGlobalServoValues,
-  makeLegServoValues,
-  sittingPosition,
-} from './utils'
+import {makeLegServoValues, sittingPosition} from './utils'
+import {ProcessMsgHandler} from './processMsgHandler'
+import express from 'express'
+import bodyParser from 'body-parser'
+import {WebSocket} from 'ws'
+
+const app = express()
+const port = 3901
+app.use(bodyParser.json())
+const wss = new WebSocket.Server({port: 3902})
 
 export const MasterHandler = (
   cppProcess: ChildProcessWithoutNullStreams,
@@ -43,61 +41,25 @@ export const MasterHandler = (
       if (!command.includes('SET_SERVO')) {
         state.data.cppWaiting = true
       }
-      console.log('C++ request -> ' + command)
+      // console.log('C++ request -> ' + command)
       cppProcess.stdin.write(command + '\n')
     },
     py: (command) => {
       state.data.pythonWaiting = true
-      console.log('Python request -> ' + command)
+      // console.log('Python request -> ' + command)
       pythonProcess.stdin.write(command + '\n')
     },
     rp2040: (command) => {
       if (!command.includes('DRAW')) {
         state.data.rp2040Waiting = true
       }
-      console.log('RP2040 request -> ' + command)
+      // console.log('RP2040 request -> ' + command)
       Rp2040Port.write(command + '\n')
     },
   }
 
-  const commonUpdate = ({cppMsg, pythonMsg, rp2040msg}: UpdaterMsg) => {
-    if (rp2040msg?.includes('PING')) {
-      handlers.rp2040('DRAW_LOADING')
-    }
-    if (rp2040msg?.includes('READ_IMU')) {
-      ReceiveReadIMUHandler({state, handlers, msg: rp2040msg})
-    }
-    if (rp2040msg?.includes('READ_TOF')) {
-      ReceiveReadTOFHandler({state, handlers, msg: rp2040msg})
-    }
-    if (cppMsg?.includes('SERVOS_QUERY_POSITIONS')) {
-      ReceiveServosQueryPositionsHandler({
-        state,
-        handlers,
-        msg: cppMsg,
-      })
-    }
-    if (cppMsg?.includes('SERVOS_QUERY_MOVING')) {
-      ReceiveServosQueryMovingHandler({
-        state,
-        handlers,
-        msg: cppMsg,
-      })
-    }
-    if (cppMsg?.includes('SERVOS_QUERY_SPEED')) {
-      ReceiveServosQuerySpeedHandler({
-        state,
-        handlers,
-        msg: cppMsg,
-      })
-    }
-    if (pythonMsg?.includes('READ_CAMERA')) {
-      ReceiveReadCameraHandler({
-        state,
-        handlers,
-        msg: pythonMsg,
-      })
-    }
+  const commonUpdate = (msg: UpdaterMsg) => {
+    ProcessMsgHandler({msg, state})
 
     if (
       !state.data.pythonWaiting &&
@@ -111,6 +73,7 @@ export const MasterHandler = (
           handlers.py('PING')
           handlers.cpp('PING')
           handlers.rp2040('PING')
+          handlers.rp2040('DRAW_LOADING')
           break
 
         case 'PINGING':
@@ -121,24 +84,24 @@ export const MasterHandler = (
           break
 
         case 'UNKNOWN POSITION':
-          if (state.data.isRobotSitting) state.type = 'SITTING'
+        // if (state.data.isRobotSitting) state.type = 'SITTING'
+        // break
 
         case 'SITTING':
-          console.log(isUpright(state))
-          if (isUpright(state)) {
-            handlers.cpp(
-              makeMoveServosCommand(
-                {
-                  ...makeLegServoValues(200),
-                  [ServoIDs.KNEE_R]: 400,
-                  [ServoIDs.KNEE_L]: 400,
-                },
-                'SPEED',
-              ),
-            )
-            handlers.cpp(makeMoveServosCommand(makeLegServoValues(2048)))
-            state.type = 'READY'
-          }
+        // if (isUpright(state)) {
+        //   handlers.cpp(
+        //     makeMoveServosCommand(
+        //       {
+        //         ...makeLegServoValues(200),
+        //         [ServoIDs.KNEE_R]: 400,
+        //         [ServoIDs.KNEE_L]: 400,
+        //       },
+        //       'SPEED',
+        //     ),
+        //   )
+        //   handlers.cpp(makeMoveServosCommand(makeLegServoValues(2048)))
+        //   state.type = 'READY'
+        // }
 
         // case 'READY':
 
@@ -179,12 +142,44 @@ export const MasterHandler = (
     }
   }
 
+  app.get('/state', (_, res) => {
+    res.json({state})
+  })
+
+  app.patch('/state', (req, res) => {
+    if (!Object.keys(req.body).every((key) => key in state)) {
+      res.statusCode = 400
+    } else {
+      Object.assign(state, req.body)
+      res.json({message: 'State updated successfully.', state})
+    }
+  })
+
+  app.listen(port, () => {
+    console.log(`Robot server running on port ${port}`)
+  })
+
+  wss.on('connection', (ws) => {
+    console.log('WebSocket connection established')
+
+    ws.send(JSON.stringify({state}))
+
+    // Handle incoming messages from the client
+    ws.on('message', (message) => {
+      console.log('Received:', message)
+    })
+
+    ws.on('close', () => {
+      console.log('WebSocket connection closed')
+    })
+  })
+
   cppProcess.stdout.on('data', (data: Buffer) => {
     const output = data.toString()
     const lines = output.split('\n')
     lines.forEach((line) => {
       if (line !== '') {
-        console.log('C++ response <- ' + line)
+        // console.log('C++ response <- ' + line)
         try {
           state.data.cppWaiting = false
           commonUpdate({cppMsg: line})
@@ -200,7 +195,7 @@ export const MasterHandler = (
     const lines = output.split('\n')
     lines.forEach((line) => {
       if (line !== '') {
-        console.log('Python response <- ' + line)
+        // console.log('Python response <- ' + line)
         try {
           state.data.pythonWaiting = false
           commonUpdate({pythonMsg: line})
@@ -216,7 +211,7 @@ export const MasterHandler = (
     const lines = output.split('\n')
     lines.forEach((line) => {
       if (line !== '') {
-        console.log('rp2040 RESPONSE <- ', line)
+        // console.log('rp2040 RESPONSE <- ', line)
         try {
           state.data.rp2040Waiting = false
           commonUpdate({rp2040msg: line})

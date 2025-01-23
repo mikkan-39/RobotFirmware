@@ -46,7 +46,7 @@ export const convertToNumberRecord = <T>(
 export const comparePositions = (
   currentPosition: Record<number, number>,
   templatePosition: Record<number, number>,
-  coefficient: number = 25,
+  coefficient: number = 125,
 ): boolean => {
   let sumOfSquares = 0
 
@@ -76,7 +76,7 @@ export const comparePositions = (
 export const isUpright = (
   state: MasterHandlerState,
   angleThreshold: number = 10,
-  gyroThreshold: number = 0.1,
+  gyroThreshold: number = 10,
 ) => {
   const {lastIMUData: imu} = state.data
   if (!imu) {

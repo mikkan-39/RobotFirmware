@@ -1,102 +1,17 @@
 import {makeDrawEyesCommand, makeMoveServosCommand} from './commands'
-import {
-  IMUData,
-  MasterHandlerState,
-  RawPythonReadCamMsg,
-  ServoIDs,
-  ServoMiddle,
-  StdinHandlers,
-  YoloDetectionResults,
-} from './types'
+import {MasterHandlerState, ServoIDs, ServoMiddle, StdinHandlers} from './types'
 import {
   convertToNumberRecord,
-  isRobotSitting,
   makeGlobalServoValues,
   sittingPosition,
 } from './utils'
 
 type CommonHandlerArgs = {
   state: MasterHandlerState
-  msg: string
   handlers: StdinHandlers
 }
 
-export const ReceiveReadCameraHandler = ({state, msg}: CommonHandlerArgs) => {
-  const dataString = msg.replace('READ_CAMERA: ', '')
-  const results = (JSON.parse(dataString) as RawPythonReadCamMsg).reduce(
-    (acc: YoloDetectionResults, [name, [xs, ys, xe, ye], probability]) => {
-      acc.push({name, coords: [xs, ys, xe, ye], probability})
-      return acc
-    },
-    [],
-  )
-  state.data.lastYoloDetectionResult = results
-}
-
-export const ReceiveServosQueryPositionsHandler = ({
-  state,
-  msg,
-}: CommonHandlerArgs) => {
-  const dataString = msg.replace('SERVOS_QUERY_POSITIONS: ', '')
-  const results = JSON.parse(dataString) as Record<number, number>
-  state.data.lastServoPositions = results
-  state.data.isRobotSitting = isRobotSitting(state)
-}
-
-export const ReceiveServosQueryMovingHandler = ({
-  state,
-  msg,
-}: CommonHandlerArgs) => {
-  const dataString = msg.replace('SERVOS_QUERY_MOVING: ', '')
-  const results = JSON.parse(dataString) as Record<number, boolean>
-  state.data.lastServoMoving = results
-}
-
-export const ReceiveServosQuerySpeedHandler = ({
-  state,
-  msg,
-}: CommonHandlerArgs) => {
-  const dataString = msg.replace('SERVOS_QUERY_SPEED: ', '')
-  const results = JSON.parse(dataString) as Record<number, number>
-  state.data.lastServoSpeeds = results
-}
-
-export const ReceiveReadIMUHandler = ({state, msg}: CommonHandlerArgs) => {
-  const dataString = msg
-    .replace('READ_IMU: ', '')
-    .replace(/([a-zA-Z0-9_]+)(?=:)/g, '"$1"')
-  const data = JSON.parse(dataString) as IMUData
-
-  const wrappedAngle = (angle: number) =>
-    angle < 0 ? -angle - 180 : 180 - angle
-
-  const convertedIMUData = {
-    roll: -data.pitch,
-    pitch: -data.roll,
-    yaw: -data.yaw,
-    gx: -data.gx,
-    gy: -data.gy,
-    gz: -data.gz,
-    ax: -data.ax,
-    ay: -data.ay,
-    az: -data.az,
-  }
-
-  state.data.lastIMUData = convertedIMUData
-}
-
-export const ReceiveReadTOFHandler = ({state, msg}: CommonHandlerArgs) => {
-  const dataString = msg
-    .replace('READ_TOF: ', '')
-    .replace(/([a-zA-Z0-9_]+)(?=:)/g, '"$1"')
-  const results = JSON.parse(dataString) as {distance: number}
-  state.data.lastTOFData = results.distance
-}
-
-export const MoveHeadHandler = ({
-  state,
-  handlers,
-}: Omit<CommonHandlerArgs, 'msg'>) => {
+export const MoveHeadHandler = ({state, handlers}: CommonHandlerArgs) => {
   const imageWidth = 1920 //  camera width
   const imageHeight = 1080 //  camera height
   const servoXMin = 1024
@@ -144,8 +59,6 @@ export const MoveHeadHandler = ({
     let currentNeckVAngle =
       lastServoPositions?.[ServoIDs.HEAD_VERTICAL] ?? ServoMiddle
 
-    console.log({currentNeckHAngle, currentNeckVAngle})
-
     currentNeckHAngle = Math.max(
       Math.min(currentNeckHAngle + servoOffsetX * 0.2, servoXMax),
       servoXMin,
@@ -169,10 +82,7 @@ export const handleResetServoSettings = (handlers: StdinHandlers) => {
   handlers.cpp(makeMoveServosCommand(makeGlobalServoValues(0), 'SPEED'))
 }
 
-export const MirrorHandHandler = ({
-  state,
-  handlers,
-}: Omit<CommonHandlerArgs, 'msg'>) => {
+export const MirrorHandHandler = ({state, handlers}: CommonHandlerArgs) => {
   const positions = state.data.lastServoPositions
   handlers.cpp(
     makeMoveServosCommand({
@@ -188,6 +98,6 @@ export const MirrorHandHandler = ({
   )
 }
 
-export const StandUpHandler = ({handlers}: Omit<CommonHandlerArgs, 'msg'>) => {
+export const StandUpHandler = ({handlers}: CommonHandlerArgs) => {
   handlers.cpp(makeMoveServosCommand(convertToNumberRecord(sittingPosition)))
 }
