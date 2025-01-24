@@ -11,6 +11,22 @@ type CommonHandlerArgs = {
   handlers: StdinHandlers
 }
 
+let eyesR = 90
+let eyesS = 3
+
+setInterval(() => {
+  if (Math.random() > 0.5) {
+    eyesR = 10
+    eyesS = 20
+    setTimeout(() => {
+      eyesR = 90
+    }, 150)
+    setTimeout(() => {
+      eyesS = 3
+    }, 300)
+  }
+}, 3000)
+
 export const MoveHeadHandler = ({state, handlers}: CommonHandlerArgs) => {
   const imageWidth = 1920 //  camera width
   const imageHeight = 1080 //  camera height
@@ -46,10 +62,10 @@ export const MoveHeadHandler = ({state, handlers}: CommonHandlerArgs) => {
 
   handlers.rp2040(
     makeDrawEyesCommand({
-      radius: 90,
+      radius: eyesR,
       x: (120 - 120 * offsetX * 0.75).toFixed(),
       y: (120 + 120 * offsetY * 0.75).toFixed(),
-      speed: 3,
+      speed: eyesS,
     }),
   )
 
