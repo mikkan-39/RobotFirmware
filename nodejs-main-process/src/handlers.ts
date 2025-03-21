@@ -94,6 +94,7 @@ export const MoveHeadHandler = ({state, handlers}: CommonHandlerArgs) => {
 
 export const handleResetServoSettings = (handlers: StdinHandlers) => {
   // handlers.cpp(makeMoveServosCommand(makeGlobalServoValues(0), 'ACCELERATION'))
+  console.log('yeet')
   handlers.cpp(makeMoveServosCommand(makeGlobalServoValues(0), 'TORQUE'))
   handlers.cpp(makeMoveServosCommand(makeGlobalServoValues(0), 'SPEED'))
 }

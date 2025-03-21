@@ -2,6 +2,7 @@ import sys
 import argparse
 import json
 import numpy as np
+import os
 
 # import cv2
 from picamera2 import Picamera2
@@ -14,6 +15,13 @@ class NumpyEncoder(json.JSONEncoder):
         if isinstance(obj, np.float32):
             return float(obj)  # Convert np.float32 to Python float
         return super().default(obj)
+
+
+# Get the directory of the current script
+script_dir = os.path.dirname(os.path.abspath(__file__))
+
+# Build the full path to `coco.txt`
+labels_path = os.path.join(script_dir, 'coco.txt')
 
 
 def extract_detections(hailo_output, w, h, class_names, threshold=0.5):
@@ -43,7 +51,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Detection Example")
     parser.add_argument("-m", "--model", help="Path for the HEF model.",
                         default="/usr/share/hailo-models/yolov8s_h8l.hef")
-    parser.add_argument("-l", "--labels", default="../python-ml-control/coco.txt",
+    parser.add_argument("-l", "--labels", default=labels_path,
                         help="Path to a text file containing labels.")
     parser.add_argument("-s", "--score_thresh", type=float, default=0.5,
                         help="Score threshold, must be a float between 0 and 1.")
