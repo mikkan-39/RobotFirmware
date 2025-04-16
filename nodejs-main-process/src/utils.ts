@@ -1,5 +1,5 @@
-import {writeFile, readFileSync} from 'fs'
-import {MasterHandlerState, ServoIDs} from './types'
+import { writeFile, readFileSync } from 'fs'
+import { MasterHandlerState, ServoIDs } from './types'
 
 export const saveJSON = (
   object: Record<string | number, any>,
@@ -25,6 +25,7 @@ export const getJSONSync = (path: string): Record<string, any> | null => {
 }
 
 export const sittingPosition = getJSONSync('jsons/sittingPosition.json') ?? {}
+export const standingPosition = getJSONSync('jsons/standing.json') ?? {}
 
 export const convertToNumberRecord = <T>(
   obj: Record<string, T>,
@@ -78,7 +79,7 @@ export const isUpright = (
   angleThreshold: number = 10,
   gyroThreshold: number = 10,
 ) => {
-  const {lastIMUData: imu} = state.data
+  const { lastIMUData: imu } = state.data
   if (!imu) {
     return false
   }

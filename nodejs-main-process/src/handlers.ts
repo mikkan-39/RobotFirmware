@@ -69,7 +69,7 @@ export const MoveHeadHandler = ({state, handlers}: CommonHandlerArgs) => {
     }),
   )
 
-  if (Math.abs(offsetX) > 0.2 || Math.abs(offsetY) > 0.1) {
+  if (Math.abs(offsetX) > 0.4 || Math.abs(offsetY) > 0.1) {
     let currentNeckHAngle =
       lastServoPositions?.[ServoIDs.HEAD_HORIZONTAL] ?? ServoMiddle
     let currentNeckVAngle =

@@ -11,7 +11,7 @@ const RP2040Port = new SerialPort({
 
 const BackbonePort = new SerialPort({
   path: '/dev/ttyAMA4',
-  baudRate: 115200,
+  baudRate: 921600,
 
 })
 

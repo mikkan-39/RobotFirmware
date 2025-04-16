@@ -1,22 +1,22 @@
-import type {ChildProcessWithoutNullStreams} from 'child_process'
-import {MasterHandlerState, UpdaterMsg, StdinHandlers, ServoIDs} from './types'
-import {SerialPort} from 'serialport'
+import type { ChildProcessWithoutNullStreams } from 'child_process'
+import { MasterHandlerState, UpdaterMsg, StdinHandlers, ServoIDs } from './types'
+import { SerialPort } from 'serialport'
 import {
   handleResetServoSettings,
   MirrorHandHandler,
   MoveHeadHandler,
 } from './handlers'
-import {makeMoveServosCommand} from './commands'
-import {isUpright, makeLegServoValues, sittingPosition} from './utils'
-import {ProcessMsgHandler} from './processMsgHandler'
+import { makeMoveServosCommand } from './commands'
+import { isUpright, makeLegServoValues, sittingPosition, standingPosition } from './utils'
+import { ProcessMsgHandler } from './processMsgHandler'
 import express from 'express'
 import bodyParser from 'body-parser'
-import {WebSocket} from 'ws'
+import { WebSocket } from 'ws'
 
 const app = express()
 const port = 3901
 app.use(bodyParser.json())
-const wss = new WebSocket.Server({port: 3902})
+const wss = new WebSocket.Server({ port: 3902 })
 
 export const MasterHandler = (
   BackbonePort: SerialPort,
@@ -64,7 +64,7 @@ export const MasterHandler = (
   }
 
   const commonUpdate = (msg: UpdaterMsg) => {
-    ProcessMsgHandler({msg, state})
+    ProcessMsgHandler({ msg, state })
 
     if (
       !state.data.pythonWaiting &&
@@ -84,6 +84,18 @@ export const MasterHandler = (
         case 'PINGING':
           state.type = 'UNKNOWN POSITION'
           // handleResetServoSettings(handlers) //FIXME
+          // handlers.cpp(makeMoveServosCommand({
+          //   21: 1,
+          //   22: 1,
+          //   1: 1,
+          //   2: 1,
+          //   3: 1,
+          //   4: 1,
+          //   5: 1,
+          //   6: 1,
+          //   7: 1,
+          //   8: 1
+          // }, 'ENABLED'))
           handlers.cpp('SERVOS_QUERY_POSITIONS')
           handlers.rp2040('READ_IMU')
           break
@@ -111,8 +123,8 @@ export const MasterHandler = (
         // case 'READY':
 
         default:
-          MoveHeadHandler({state, handlers})
-          // MirrorHandHandler({state, handlers})
+          MoveHeadHandler({ state, handlers })
+          MirrorHandHandler({ state, handlers })
           handlers.cpp('SERVOS_QUERY_POSITIONS')
           handlers.rp2040('READ_IMU')
       }
@@ -122,33 +134,47 @@ export const MasterHandler = (
         switch (state.type) {
           case 'UNKNOWN POSITION':
             setInterval(() => handlers.py('READ_CAMERA'), 50)
-            handlers.cpp(
-              makeMoveServosCommand(
-                {
-                  [ServoIDs.HEAD_HORIZONTAL]: 100,
-                  [ServoIDs.HEAD_VERTICAL]: 100,
-                },
-                'TORQUE',
-              ),
-            )
-          // handlers.cpp(
-          //   makeMoveServosCommand(
-          //     {
-          //       ...makeLegServoValues(200),
-          //       [ServoIDs.KNEE_R]: 400,
-          //       [ServoIDs.KNEE_L]: 400,
-          //     },
-          //     'SPEED',
-          //   ),
-          // )
-          // handlers.cpp(makeMoveServosCommand(sittingPosition))
+            setTimeout(() => {
+              handlers.cpp(
+                makeMoveServosCommand(
+                  {
+                    [ServoIDs.HEAD_HORIZONTAL]: 500,
+                    [ServoIDs.HEAD_VERTICAL]: 500,
+                  },
+                  'SPEED',
+                ),
+              )
+              handlers.cpp(
+                makeMoveServosCommand(
+                  {
+                    [ServoIDs.HEAD_HORIZONTAL]: 2,
+                    [ServoIDs.HEAD_VERTICAL]: 2,
+                  },
+                  'TORQUE',
+                ),
+              )
+              handlers.cpp(
+                makeMoveServosCommand(
+                  {
+                    ...makeLegServoValues(200),
+                    [ServoIDs.KNEE_R]: 400,
+                    [ServoIDs.KNEE_L]: 400,
+                  },
+                  'SPEED',
+                ),
+              )
+              // handlers.cpp(makeMoveServosCommand(sittingPosition))
+              handlers.cpp(makeMoveServosCommand(standingPosition))
+              // handlers.cpp(makeMoveServosCommand(makeLegServoValues(2048)))
+            }, 100)
+
         }
       }
     }
   }
 
   app.get('/state', (_, res) => {
-    res.json({state})
+    res.json({ state })
   })
 
   app.patch('/state', (req, res) => {
@@ -156,7 +182,7 @@ export const MasterHandler = (
       res.statusCode = 400
     } else {
       Object.assign(state, req.body)
-      res.json({message: 'State updated successfully.', state})
+      res.json({ message: 'State updated successfully.', state })
     }
   })
 
@@ -167,7 +193,7 @@ export const MasterHandler = (
   wss.on('connection', (ws) => {
     console.log('WebSocket connection established')
 
-    ws.send(JSON.stringify({state}))
+    ws.send(JSON.stringify({ state }))
 
     // Handle incoming messages from the client
     ws.on('message', (message) => {
@@ -198,7 +224,7 @@ export const MasterHandler = (
         console.log('Backbone response <- ' + line)
         try {
           state.data.cppWaiting = false
-          commonUpdate({cppMsg: line})
+          commonUpdate({ cppMsg: line })
         } catch (err) {
           console.error(err)
         }
@@ -226,7 +252,7 @@ export const MasterHandler = (
         // console.log('rp2040 RESPONSE <- ' + line)
         try {
           state.data.rp2040Waiting = false
-          commonUpdate({rp2040msg: line})
+          commonUpdate({ rp2040msg: line })
         } catch (err) {
           console.error(err)
         }
@@ -242,7 +268,7 @@ export const MasterHandler = (
         // console.log('Python response <- ' + line)
         try {
           state.data.pythonWaiting = false
-          commonUpdate({pythonMsg: line})
+          commonUpdate({ pythonMsg: line })
         } catch (err) {
           console.error(err)
         }
