@@ -2,4 +2,4 @@ wheel
 picamera2
 rpi-libcamera
 numpy>=1.26.0, <2.0.0
-zmq
+pyzmq

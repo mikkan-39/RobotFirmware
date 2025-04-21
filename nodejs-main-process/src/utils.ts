@@ -161,6 +161,7 @@ export function createRunLoop(
 ): RunLoopControl {
   const avgWindowSize = options?.avgWindowSize ?? 100;
   const logEvery = options?.logEvery ?? 100;
+  let shouldLog = true;
 
   let shouldRun = true;
   let paused = false;
@@ -171,16 +172,14 @@ export function createRunLoop(
   async function loop() {
     while (shouldRun) {
       if (paused) {
-        await new Promise((resolve) => setTimeout(resolve, 10));
+        await new Promise((resolve) => setTimeout(resolve, targetPeriodMs));
         continue;
       }
 
       const now = performance.now();
       const elapsedSinceLastStart = now - lastStart;
 
-      if (elapsedSinceLastStart < targetPeriodMs) {
-        await new Promise((resolve) => setTimeout(resolve, targetPeriodMs - elapsedSinceLastStart));
-      } else if (elapsedSinceLastStart > targetPeriodMs + 5) {
+      if (elapsedSinceLastStart > targetPeriodMs) {
         console.warn(`[WARNING] Overrun detected: cycle took ${elapsedSinceLastStart.toFixed(2)}ms`);
       }
 
@@ -204,9 +203,9 @@ export function createRunLoop(
       }
 
       cycleCount++;
-      if (cycleCount % logEvery === 0) {
+      if (cycleCount % logEvery === 0 && shouldLog) {
         const avg = durations.reduce((sum, d) => sum + d, 0) / durations.length;
-        console.log(`[INFO] Average main() duration: ${avg.toFixed(2)}ms over last ${durations.length} cycles`);
+        console.log(`[INFO] Average main() duration: ${avg.toFixed(3)}ms over last ${durations.length} cycles`);
       }
     }
 

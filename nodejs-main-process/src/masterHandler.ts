@@ -10,6 +10,8 @@ import { makeMoveServosCommand } from './commands'
 import { createRunLoop, isUpright, makeLegServoValues, sittingPosition, standingPosition } from './utils'
 import { ProcessMsgHandler } from './processMsgHandler'
 import RequestResponseHandler from './requestHandler'
+import * as zmq from "zeromq";
+
 // import express from 'express'
 // import bodyParser from 'body-parser'
 // import { WebSocket } from 'ws'
@@ -37,24 +39,37 @@ export const MasterHandler = (
     },
   }
 
+
+  const sock = new zmq.Request();
+  sock.connect("tcp://127.0.0.1:5836");
+
+  async function run() {
+
+    await sock.send(JSON.stringify({ method: "status" }));
+    const [reply] = await sock.receive();
+    reply && console.log("Python reply:", JSON.parse(reply.toString()));
+  }
+
   async function main() {
-    switch (state.type) {
-      case 'INIT':
-        try {
-          const pyPingResponse = await pythonController.send('PING')
-          const headPingResponse = await headController.send('PING')
-          const backbonePingResponse = await backboneController.send('PING')
-        } catch (err) {
-          console.error(err)
-          state.type = 'ERROR'
-          return
-        }
-        break
-      case 'ERROR':
-        break
-      case 'READY':
-        break
-    }
+    // switch (state.type) {
+    //   case 'INIT':
+    //     try {
+    //       const pyPingResponse = await pythonController.send('PING')
+    //       const headPingResponse = await headController.send('PING')
+    //       const backbonePingResponse = await backboneController.send('PING')
+    //     } catch (err) {
+    //       console.error(err)
+    //       state.type = 'ERROR'
+    //       return
+    //     }
+    //     break
+    //   case 'ERROR':
+    //     break
+    //   case 'READY':
+    //     break
+    // }
+
+    await run();
   }
 
   const runLoop = createRunLoop(20, main);

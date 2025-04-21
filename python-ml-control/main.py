@@ -14,16 +14,20 @@ import threading
 
 ctx = zmq.Context()
 sock = ctx.socket(zmq.REP)
-sock.bind("tcp://127.0.0.1:5555")
+sock.bind("tcp://127.0.0.1:5836")
 
 
-def listen_for_requests():
-    while True:
-        line = sys.stdin.readline()
-        if line:
-            handle_json_rpc(line)
+# def listen_for_requests():
+#     while True:
+#         msg = sock.recv_json()            # e.g. {"method":"status"}
+#         if msg["method"] == "PING":
+#             sock.send_json({"ok":True})
+#         elif msg["method"] == "READ_CAMERA":
+#             sock.send_json({"ok":True})
+#         else:
+#             sock.send_json({"error":"unknown"})
 
-threading.Thread(target=listen_for_requests, daemon=True).start()
+# threading.Thread(target=listen_for_requests, daemon=True).start()
 
 
 # Custom encoder for NumPy float32
@@ -102,17 +106,31 @@ if __name__ == "__main__":
             picam2.start()
 
             while True:
-                # Read command from stdin
-                command = sys.stdin.readline().strip()
-                if command == "READ_CAMERA":
-                    # Image detection
+                msg = sock.recv_json()
+                if msg["method"] == "PING":
+                    sock.send_json({"ok":True})
+                elif msg["method"] == "READ_CAMERA":
                     frame = picam2.capture_array('lores')
                     results = hailo.run(frame)
                     detections = extract_detections(results, video_w, video_h, class_names, args.score_thresh)
-                    print("READ_CAMERA: " + json.dumps(detections, cls=NumpyEncoder))
+                    sock.send_json(detections)
+                elif msg["method"] == "EXIT":
+                    break
+                else:
+                    sock.send_json({"error":"unknown"})
 
-                elif command:
-                    handle_command(command)
-                    if command == "EXIT":
-                        break
+            # while True:
+            #     # Read command from stdin
+            #     command = sys.stdin.readline().strip()
+            #     if command == "READ_CAMERA":
+            #         # Image detection
+            #         frame = picam2.capture_array('lores')
+            #         results = hailo.run(frame)
+            #         detections = extract_detections(results, video_w, video_h, class_names, args.score_thresh)
+            #         print("READ_CAMERA: " + json.dumps(detections, cls=NumpyEncoder))
+
+            #     elif command:
+            #         handle_command(command)
+            #         if command == "EXIT":
+            #             break
 
