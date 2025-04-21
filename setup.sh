@@ -4,31 +4,6 @@ echo "Setting up the project..."
 # Exit on errors
 set -e
 
-# Build hardware control
-echo "Building hardware control..."
-cd cpp-hardware-control
-
-source ~/.bashrc
-
-# Install WiringPi if necessary
-if ! command -v gpio &> /dev/null
-then
-    echo "WiringPi not found. Installing..."
-    git clone https://github.com/WiringPi/WiringPi.git
-    cd WiringPi
-    ./build
-    cd ..
-    rm -rf /WiringPi
-    echo "WiringPi installed."
-else
-    echo "WiringPi is already installed."
-fi
-
-mkdir -p build && cd build
-cmake ..
-make
-cd ../..
-
 # Initialize Node.js
 echo "Setting up Node.js environment..."
 cd nodejs-main-process
