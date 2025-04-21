@@ -3,11 +3,28 @@ import argparse
 import json
 import numpy as np
 import os
-
+import zmq
 # import cv2
 from picamera2 import Picamera2
 from picamera2.devices import Hailo
 import libcamera
+import threading
+
+
+
+ctx = zmq.Context()
+sock = ctx.socket(zmq.REP)
+sock.bind("tcp://127.0.0.1:5555")
+
+
+def listen_for_requests():
+    while True:
+        line = sys.stdin.readline()
+        if line:
+            handle_json_rpc(line)
+
+threading.Thread(target=listen_for_requests, daemon=True).start()
+
 
 # Custom encoder for NumPy float32
 class NumpyEncoder(json.JSONEncoder):

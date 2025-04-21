@@ -1,11 +1,7 @@
 export type MasterHandlerState = {
-  type: 'INIT' | 'PINGING' | 'READY' | 'SITTING' | 'UNKNOWN POSITION'
+  type: 'INIT' | 'ERROR' | 'READY'
   data: {
-    cppWaiting: boolean
-    pythonWaiting: boolean
-    rp2040Waiting: boolean
     lastServoPositions: Record<number, number>
-    lastServoMoving: Record<number, boolean>
     lastServoSpeeds: Record<number, number>
     lastYoloDetectionResult: YoloDetectionResults
     lastIMUData?: IMUData
@@ -14,20 +10,17 @@ export type MasterHandlerState = {
   }
 }
 
-export type CppStdinMsg =
+export type BackboneMsg =
   | 'PING'
   | 'SERVOS_QUERY_POSITIONS'
-  | 'SERVOS_QUERY_MOVING'
   | 'SERVOS_QUERY_SPEED'
   | 'EXIT'
   | `SET_SERVO_${ServoMoveType}${string}`
 
-export type CppStdinHandler = (msg: CppStdinMsg) => void
 
-export type PythonStdinMsg = 'PING' | 'READ_CAMERA' | 'EXIT'
-export type PythonStdinHandler = (msg: PythonStdinMsg) => void
+export type PythonMsg = 'PING' | 'READ_CAMERA' | 'EXIT'
 
-export type RP2040PortMsg =
+export type HeadMsg =
   | 'PING'
   | 'DRAW_INIT'
   | 'READ_TOF'
@@ -35,19 +28,6 @@ export type RP2040PortMsg =
   | 'DRAW_LOADING'
   | 'DRAW_ERROR'
   | `DRAW_EYES${string}`
-export type RP2040PortHandler = (msg: RP2040PortMsg) => void
-
-export type StdinHandlers = {
-  cpp: CppStdinHandler
-  py: PythonStdinHandler
-  rp2040: RP2040PortHandler
-}
-
-export type UpdaterMsg = {
-  cppMsg?: string
-  pythonMsg?: string
-  rp2040msg?: string
-}
 
 export type RawPythonReadCamMsg = [
   name: string,

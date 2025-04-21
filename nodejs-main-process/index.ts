@@ -1,10 +1,10 @@
-import {spawn} from 'child_process'
-import {MasterHandler} from './src/masterHandler'
-import {SerialPort} from 'serialport'
+import { spawn } from 'child_process'
+import { MasterHandler } from './src/masterHandler'
+import { SerialPort } from 'serialport'
 
 console.log('Node.js supervisor started.')
 
-const RP2040Port = new SerialPort({
+const HeadPort = new SerialPort({
   path: '/dev/ttyAMA0',
   baudRate: 115200,
 })
@@ -28,7 +28,7 @@ const cleanup = () => {
   // Send termination signals to the child processes
   console.log('Cleaning up...')
   pythonProcess.kill('SIGTERM')
-  RP2040Port.write('DRAW_INIT\n') // Resetting RP2040 state
+  HeadPort.write('DRAW_INIT\n') // Resetting RP2040 state
   BackbonePort.write('EXIT\n')
   process.exit()
 }
@@ -48,8 +48,20 @@ process.on('exit', cleanup) // Handle normal exit
 
 // Main
 try {
-  MasterHandler(BackbonePort, pythonProcess, RP2040Port)
+  MasterHandler(BackbonePort, HeadPort, pythonProcess)
 } catch (err) {
   console.error(err)
   cleanup()
 }
+
+import zmq from "zeromq";
+
+async function run() {
+  const sock = new zmq.Request();
+  sock.connect("tcp://127.0.0.1:5555");
+
+  await sock.send(JSON.stringify({ method: "status" }));
+  const [reply] = await sock.receive();
+  console.log("Python reply:", JSON.parse(reply.toString()));
+}
+run();

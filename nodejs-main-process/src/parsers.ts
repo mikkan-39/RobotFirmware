@@ -2,21 +2,20 @@ import {
   IMUData,
   MasterHandlerState,
   RawPythonReadCamMsg,
-  StdinHandlers,
   YoloDetectionResults,
 } from './types'
-import {isRobotSitting} from './utils'
+import { isRobotSitting } from './utils'
 
 type CommonParserArgs = {
   state: MasterHandlerState
   msg: string
 }
 
-export const ReceiveReadCameraHandler = ({state, msg}: CommonParserArgs) => {
+export const ReceiveReadCameraHandler = ({ state, msg }: CommonParserArgs) => {
   const dataString = msg.replace('READ_CAMERA: ', '')
   const results = (JSON.parse(dataString) as RawPythonReadCamMsg).reduce(
     (acc: YoloDetectionResults, [name, [xs, ys, xe, ye], probability]) => {
-      acc.push({name, coords: [xs, ys, xe, ye], probability})
+      acc.push({ name, coords: [xs, ys, xe, ye], probability })
       return acc
     },
     [],
@@ -30,17 +29,8 @@ export const ReceiveServosQueryPositionsHandler = ({
 }: CommonParserArgs) => {
   const dataString = msg.replace('SERVOS_QUERY_POSITIONS: ', '')
   const results = JSON.parse(dataString) as Record<number, number>
-  state.data.lastServoPositions = {...state.data.lastServoPositions, ...results}
+  state.data.lastServoPositions = { ...state.data.lastServoPositions, ...results }
   state.data.isRobotSitting = isRobotSitting(state)
-}
-
-export const ReceiveServosQueryMovingHandler = ({
-  state,
-  msg,
-}: CommonParserArgs) => {
-  const dataString = msg.replace('SERVOS_QUERY_MOVING: ', '')
-  const results = JSON.parse(dataString) as Record<number, boolean>
-  state.data.lastServoMoving = {...state.data.lastServoMoving, ...results}
 }
 
 export const ReceiveServosQuerySpeedHandler = ({
@@ -49,10 +39,10 @@ export const ReceiveServosQuerySpeedHandler = ({
 }: CommonParserArgs) => {
   const dataString = msg.replace('SERVOS_QUERY_SPEED: ', '')
   const results = JSON.parse(dataString) as Record<number, number>
-  state.data.lastServoSpeeds = {...state.data.lastServoSpeeds, ...results}
+  state.data.lastServoSpeeds = { ...state.data.lastServoSpeeds, ...results }
 }
 
-export const ReceiveReadIMUHandler = ({state, msg}: CommonParserArgs) => {
+export const ReceiveReadIMUHandler = ({ state, msg }: CommonParserArgs) => {
   let data: IMUData | undefined
   try {
     const dataString = msg
@@ -80,10 +70,10 @@ export const ReceiveReadIMUHandler = ({state, msg}: CommonParserArgs) => {
   state.data.lastIMUData = convertedIMUData
 }
 
-export const ReceiveReadTOFHandler = ({state, msg}: CommonParserArgs) => {
+export const ReceiveReadTOFHandler = ({ state, msg }: CommonParserArgs) => {
   const dataString = msg
     .replace('READ_TOF: ', '')
     .replace(/([a-zA-Z0-9_]+)(?=:)/g, '"$1"')
-  const results = JSON.parse(dataString) as {distance: number}
+  const results = JSON.parse(dataString) as { distance: number }
   state.data.lastTOFData = results.distance
 }
