@@ -1,52 +1,27 @@
-import sys
 import argparse
 import json
 import numpy as np
 import os
 import zmq
-# import cv2
 from picamera2 import Picamera2
 from picamera2.devices import Hailo
 import libcamera
 import threading
+import time
 
-
-
-ctx = zmq.Context()
-sock = ctx.socket(zmq.REP)
-sock.bind("tcp://127.0.0.1:5836")
-
-
-# def listen_for_requests():
-#     while True:
-#         msg = sock.recv_json()            # e.g. {"method":"status"}
-#         if msg["method"] == "PING":
-#             sock.send_json({"ok":True})
-#         elif msg["method"] == "READ_CAMERA":
-#             sock.send_json({"ok":True})
-#         else:
-#             sock.send_json({"error":"unknown"})
-
-# threading.Thread(target=listen_for_requests, daemon=True).start()
-
+# Shared state
+latest_detections = []
+detections_lock = threading.Lock()
+exit_event = threading.Event()
 
 # Custom encoder for NumPy float32
 class NumpyEncoder(json.JSONEncoder):
     def default(self, obj):
         if isinstance(obj, np.float32):
-            return float(obj)  # Convert np.float32 to Python float
+            return float(obj)
         return super().default(obj)
 
-
-# Get the directory of the current script
-script_dir = os.path.dirname(os.path.abspath(__file__))
-
-# Build the full path to `coco.txt`
-labels_path = os.path.join(script_dir, 'coco.txt')
-
-
 def extract_detections(hailo_output, w, h, class_names, threshold=0.5):
-    """Extract detections from the HailoRT-postprocess output."""
     results = []
     for class_id, detections in enumerate(hailo_output):
         for detection in detections:
@@ -57,80 +32,69 @@ def extract_detections(hailo_output, w, h, class_names, threshold=0.5):
                 results.append([class_names[class_id], bbox, score])
     return results
 
-def handle_command(command):
-    if command == "PING":
-        print("PING: Ping acknowledged by Python.")
-    elif command == "EXIT":
-        print("EXIT: Exiting Python...")
-    else:
-        print(f"ERROR: Unknown command to Python: {command}")
+def listen_for_requests():
+    ctx = zmq.Context()
+    sock = ctx.socket(zmq.REP)
+    sock.bind("tcp://127.0.0.1:5836")
+    print("ZMQ: Listening on tcp://127.0.0.1:5836")
+
+    while not exit_event.is_set():
+        try:
+            msg = sock.recv_json(flags=zmq.NOBLOCK)
+        except zmq.Again:
+            time.sleep(0.005)
+            continue
+
+        method = msg.get("method")
+        if method == "PING":
+            sock.send_json({"ok": True})
+
+        elif method == "READ_CAMERA":
+            with detections_lock:
+                sock.send_json(latest_detections, cls=NumpyEncoder)
+
+        elif method == "EXIT":
+            sock.send_json({"ok": True})
+            print("ZMQ: Received EXIT, shutting down.")
+            exit_event.set()
+
+        else:
+            sock.send_json({"error": "Unknown method"})
 
 if __name__ == "__main__":
     print("INIT: Python subsystem started.")
 
-    # Parse command-line arguments.
-    parser = argparse.ArgumentParser(description="Detection Example")
-    parser.add_argument("-m", "--model", help="Path for the HEF model.",
-                        default="/usr/share/hailo-models/yolov8s_h8l.hef")
-    parser.add_argument("-l", "--labels", default=labels_path,
-                        help="Path to a text file containing labels.")
-    parser.add_argument("-s", "--score_thresh", type=float, default=0.5,
-                        help="Score threshold, must be a float between 0 and 1.")
-    parser.add_argument("-x", "--width", type=int, default=1920,
-                        help="Camera image width.")
-    parser.add_argument("-y", "--height", type=int, default=1080,
-                        help="Camera image height.")
-    args = parser.parse_args()
+    # === Start ZMQ request handler thread ===
+    zmq_thread = threading.Thread(target=listen_for_requests, daemon=True)
+    zmq_thread.start()
 
-
-    # Get the Hailo model, the input size it wants, and the size of our preview stream.
+    # === Start Hailo + Picamera2 detection loop ===
     with Hailo(args.model) as hailo:
         model_h, model_w, _ = hailo.get_input_shape()
         video_w, video_h = args.width, args.height
 
-        # Load class names from the labels file
-        with open(args.labels, 'r', encoding="utf-8") as f:
-            class_names = f.read().splitlines()
-
-        # The list of detected objects to draw.
-        detections = None
-
-        # Configure and start Picamera2.
         with Picamera2() as picam2:
             main = {'size': (video_w, video_h), 'format': 'XRGB8888'}
             lores = {'size': (model_w, model_h), 'format': 'RGB888'}
             controls = {'FrameRate': 30}
-            config = picam2.create_preview_configuration(main, lores=lores, controls=controls, transform=libcamera.Transform(hflip=1, vflip=1))
+            config = picam2.create_preview_configuration(
+                main, lores=lores, controls=controls,
+                transform=libcamera.Transform(hflip=1, vflip=1)
+            )
             picam2.configure(config)
-            # picam2.start_preview(Preview.QTGL, x=0, y=0, width=video_w, height=video_h)
             picam2.start()
 
-            while True:
-                msg = sock.recv_json()
-                if msg["method"] == "PING":
-                    sock.send_json({"ok":True})
-                elif msg["method"] == "READ_CAMERA":
+            while not exit_event.is_set():
+                try:
                     frame = picam2.capture_array('lores')
                     results = hailo.run(frame)
-                    detections = extract_detections(results, video_w, video_h, class_names, args.score_thresh)
-                    sock.send_json(detections)
-                elif msg["method"] == "EXIT":
-                    break
-                else:
-                    sock.send_json({"error":"unknown"})
+                    new_detections = extract_detections(results, video_w, video_h, class_names, args.score_thresh)
 
-            # while True:
-            #     # Read command from stdin
-            #     command = sys.stdin.readline().strip()
-            #     if command == "READ_CAMERA":
-            #         # Image detection
-            #         frame = picam2.capture_array('lores')
-            #         results = hailo.run(frame)
-            #         detections = extract_detections(results, video_w, video_h, class_names, args.score_thresh)
-            #         print("READ_CAMERA: " + json.dumps(detections, cls=NumpyEncoder))
+                    with detections_lock:
+                        latest_detections = new_detections
 
-            #     elif command:
-            #         handle_command(command)
-            #         if command == "EXIT":
-            #             break
+                    time.sleep(0.01)  # Tune based on CPU usage
+                except Exception as e:
+                    print("ERROR during detection loop:", e)
 
+    print("SHUTDOWN: Python subsystem exited.")

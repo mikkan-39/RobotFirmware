@@ -1,24 +1,36 @@
 import { spawn } from 'child_process'
 import { MasterHandler } from './src/masterHandler'
 import { SerialPort } from 'serialport'
+import BackboneRequestResponseHandler from './src/backboneRequestHandler'
 
 console.log('Node.js supervisor started.')
 
-const HeadPort = new SerialPort({
-  path: '/dev/ttyAMA0',
+// const HeadPort = new SerialPort({
+//   path: '/dev/ttyAMA0',
+//   baudRate: 115200,
+// })
+
+const BackbonePort = new SerialPort({
+  path: '/dev/tty.usbmodem2101',
   baudRate: 115200,
 })
 
-const BackbonePort = new SerialPort({
-  path: '/dev/ttyAMA4',
-  baudRate: 921600,
 
-})
+const handler = new BackboneRequestResponseHandler('Backbone', BackbonePort);
 
-const pythonExecutable = '../python-ml-control/venv/bin/python3'
-const pythonScript = '../python-ml-control/main.py'
+(async () => {
 
-const pythonProcess = spawn(pythonExecutable, ['-u', pythonScript])
+  console.log(await handler.ping());
+
+  console.log(await handler.exit());
+
+  console.log(await handler.queryPositions());
+})();
+
+// const pythonExecutable = '../python-ml-control/venv/bin/python3'
+// const pythonScript = '../python-ml-control/main.py'
+
+// const pythonProcess = spawn(pythonExecutable, ['-u', pythonScript])
 
 // pythonProcess.stderr.on('data', (data: Buffer) => {
 //   console.error(`Python stderr: \n${data}\n`)
@@ -47,9 +59,9 @@ const pythonProcess = spawn(pythonExecutable, ['-u', pythonScript])
 // process.on('exit', cleanup) // Handle normal exit
 
 // Main
-try {
-  MasterHandler(BackbonePort, HeadPort, pythonProcess)
-} catch (err) {
-  console.error(err)
-  // cleanup()
-}
+// try {
+//   MasterHandler(BackbonePort, HeadPort, pythonProcess)
+// } catch (err) {
+//   console.error(err)
+//   // cleanup()
+// }
