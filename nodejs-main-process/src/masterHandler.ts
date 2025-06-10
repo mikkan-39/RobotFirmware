@@ -1,16 +1,10 @@
 import type { ChildProcessWithoutNullStreams } from 'child_process'
-import { BackboneMsg, HeadMsg, MasterHandlerState, PythonMsg, ServoIDs } from './types'
+import { MasterHandlerState, ServoIDs } from './types'
 import { SerialPort } from 'serialport'
-import {
-  handleResetServoSettings,
-  MirrorHandHandler,
-  MoveHeadHandler,
-} from './handlers'
-import { makeMoveServosCommand } from './commands'
-import { createRunLoop, isUpright, makeLegServoValues, sittingPosition, standingPosition } from './utils'
-import { ProcessMsgHandler } from './processMsgHandler'
-import RequestResponseHandler from './requestHandler'
+import { createRunLoop, isUpright, makeGlobalServoValues, makeLegServoValues, sittingPosition, standingPosition } from './utils'
 import * as zmq from "zeromq";
+import { BackboneRequestHandler } from './handlers/backboneRequestHandler'
+import { PeripheryRequestHandler } from './handlers/peripheryRequestHandler'
 
 // import express from 'express'
 // import bodyParser from 'body-parser'
@@ -24,11 +18,17 @@ import * as zmq from "zeromq";
 export const MasterHandler = (
   BackbonePort: SerialPort,
   HeadPort: SerialPort,
-  pythonProcess: ChildProcessWithoutNullStreams,
 ) => {
-  const pythonController = new RequestResponseHandler<PythonMsg>('Python', pythonProcess);
-  const headController = new RequestResponseHandler<HeadMsg>('Head', HeadPort);
-  const backboneController = new RequestResponseHandler<BackboneMsg>('Backbone', BackbonePort);
+  // const pythonController = new RequestResponseHandler<PythonMsg>('Python', pythonProcess);
+
+  // const pythonSock = new zmq.Request();
+  // pythonSock.connect("tcp://127.0.0.1:5836");
+  // await pythonSock.send(JSON.stringify({ method: "status" }));
+  // const [reply] = await pythonSock.receive();
+  // reply && console.log("Python reply:", JSON.parse(reply.toString()));
+
+  const peripheryController = new PeripheryRequestHandler('Periphery', HeadPort);
+  const backboneController = new BackboneRequestHandler('Backbone', BackbonePort);
 
   const state: MasterHandlerState = {
     type: 'INIT',
@@ -40,39 +40,32 @@ export const MasterHandler = (
   }
 
 
-  const sock = new zmq.Request();
-  sock.connect("tcp://127.0.0.1:5836");
+  const testFunc = async () => {
+    console.log(await peripheryController.ping())
+    console.log(await peripheryController.drawLoading())
+    console.log(await peripheryController.tof())
+    console.log(await peripheryController.imu())
+    console.log(await backboneController.ping())
+    console.log(await backboneController.queryPositions())
+    console.log(await backboneController.querySpeed())
 
-  async function run() {
+    console.log(await backboneController.setSpeed(makeGlobalServoValues(500)))
+    console.log(await backboneController.setPos({ 2: 2048 }))
+    setTimeout(async () => { console.log(await backboneController.setPos(makeLegServoValues(2048))) }, 3000)
+    setTimeout(async () => { console.log(await backboneController.setPos({ 2: 4095 })) }, 5000)
+    setTimeout(async () => { console.log(await backboneController.setPos({ 2: 2048 })) }, 10000)
+    setTimeout(async () => { console.log(await backboneController.exit()); console.log(await peripheryController.drawInit()) }, 11000)
 
-    await sock.send(JSON.stringify({ method: "status" }));
-    const [reply] = await sock.receive();
-    reply && console.log("Python reply:", JSON.parse(reply.toString()));
-  }
-
-  async function main() {
-    // switch (state.type) {
-    //   case 'INIT':
-    //     try {
-    //       const pyPingResponse = await pythonController.send('PING')
-    //       const headPingResponse = await headController.send('PING')
-    //       const backbonePingResponse = await backboneController.send('PING')
-    //     } catch (err) {
-    //       console.error(err)
-    //       state.type = 'ERROR'
-    //       return
-    //     }
-    //     break
-    //   case 'ERROR':
-    //     break
-    //   case 'READY':
-    //     break
+    // async function main() {
+    //   console.log(await backboneController.queryPositions())
     // }
 
-    await run();
+    // const runLoop = createRunLoop(20, main);
   }
 
-  const runLoop = createRunLoop(20, main);
+  testFunc();
+
+
 
   // runLoop.stop()
   // runLoop.pause()

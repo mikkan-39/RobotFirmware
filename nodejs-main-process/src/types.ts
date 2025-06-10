@@ -4,30 +4,11 @@ export type MasterHandlerState = {
     lastServoPositions: Record<number, number>
     lastServoSpeeds: Record<number, number>
     lastYoloDetectionResult: YoloDetectionResults
-    lastIMUData?: IMUData
+    lastIMUData?: any // TODO
     lastTOFData?: number
     isRobotSitting?: boolean
   }
 }
-
-export type BackboneMsg =
-  | 'PING'
-  | 'SERVOS_QUERY_POSITIONS'
-  | 'SERVOS_QUERY_SPEED'
-  | 'EXIT'
-  | `SET_SERVO_${ServoMoveType}${string}`
-
-
-export type PythonMsg = 'PING' | 'READ_CAMERA' | 'EXIT'
-
-export type HeadMsg =
-  | 'PING'
-  | 'DRAW_INIT'
-  | 'READ_TOF'
-  | 'READ_IMU'
-  | 'DRAW_LOADING'
-  | 'DRAW_ERROR'
-  | `DRAW_EYES${string}`
 
 export type RawPythonReadCamMsg = [
   name: string,
@@ -41,39 +22,6 @@ export type YoloDetectionResults = {
   probability: number
 }[]
 
-export const DrawEyesArgsEnum = {
-  x: 'x',
-  y: 'y',
-  radius: 'r',
-  speed: 's',
-  primaryColor: 'p',
-  reserveColor: 'u',
-  secondaryColor: 'c',
-  backgroundColor: 'b',
-} as const
-
-export type DrawEyesArgs = Partial<
-  Record<keyof typeof DrawEyesArgsEnum, number | string>
->
-
-export type IMUData = {
-  roll: number
-  pitch: number
-  yaw: number
-  gx: number
-  gy: number
-  gz: number
-  ax: number
-  ay: number
-  az: number
-}
-
-export type ServoMoveType =
-  | 'POS'
-  | 'SPEED'
-  | 'TORQUE'
-  | 'ENABLED'
-  | 'ACCELERATION'
 
 export const ServoIDs = {
   SHOULDER_MAIN_R: 1,

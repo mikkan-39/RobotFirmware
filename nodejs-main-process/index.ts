@@ -1,31 +1,19 @@
 import { spawn } from 'child_process'
 import { MasterHandler } from './src/masterHandler'
 import { SerialPort } from 'serialport'
-import BackboneRequestResponseHandler from './src/backboneRequestHandler'
 
 console.log('Node.js supervisor started.')
 
-// const HeadPort = new SerialPort({
-//   path: '/dev/ttyAMA0',
-//   baudRate: 115200,
-// })
-
-const BackbonePort = new SerialPort({
-  path: '/dev/tty.usbmodem2101',
-  baudRate: 115200,
+const PeripheryPort = new SerialPort({
+  path: '/dev/ttyAMA0',
+  baudRate: 1000000,
 })
 
+const BackbonePort = new SerialPort({
+  path: '/dev/ttyAMA4',
+  baudRate: 1000000,
+})
 
-const handler = new BackboneRequestResponseHandler('Backbone', BackbonePort);
-
-(async () => {
-
-  console.log(await handler.ping());
-
-  console.log(await handler.exit());
-
-  console.log(await handler.queryPositions());
-})();
 
 // const pythonExecutable = '../python-ml-control/venv/bin/python3'
 // const pythonScript = '../python-ml-control/main.py'
@@ -40,7 +28,7 @@ const handler = new BackboneRequestResponseHandler('Backbone', BackbonePort);
 //   // Send termination signals to the child processes
 //   console.log('Cleaning up...')
 //   pythonProcess.kill('SIGTERM')
-//   HeadPort.write('DRAW_INIT\n') // Resetting RP2040 state
+//   // HeadPort.write('DRAW_INIT\n') // Resetting RP2040 state
 //   BackbonePort.write('EXIT\n')
 //   process.exit()
 // }
@@ -59,9 +47,4 @@ const handler = new BackboneRequestResponseHandler('Backbone', BackbonePort);
 // process.on('exit', cleanup) // Handle normal exit
 
 // Main
-// try {
-//   MasterHandler(BackbonePort, HeadPort, pythonProcess)
-// } catch (err) {
-//   console.error(err)
-//   // cleanup()
-// }
+MasterHandler(BackbonePort, PeripheryPort)

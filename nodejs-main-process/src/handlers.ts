@@ -1,15 +1,9 @@
-import {makeDrawEyesCommand, makeMoveServosCommand} from './commands'
-import {MasterHandlerState, ServoIDs, ServoMiddle, StdinHandlers} from './types'
+import { MasterHandlerState, ServoIDs, ServoMiddle } from './types'
 import {
   convertToNumberRecord,
   makeGlobalServoValues,
   sittingPosition,
 } from './utils'
-
-type CommonHandlerArgs = {
-  state: MasterHandlerState
-  handlers: StdinHandlers
-}
 
 let eyesR = 90
 let eyesS = 3
@@ -27,7 +21,7 @@ setInterval(() => {
   }
 }, 3000)
 
-export const MoveHeadHandler = ({state, handlers}: CommonHandlerArgs) => {
+export const MoveHeadHandler = ({ state }: CommonHandlerArgs) => {
   const imageWidth = 1920 //  camera width
   const imageHeight = 1080 //  camera height
   const servoXMin = 1024
@@ -35,7 +29,7 @@ export const MoveHeadHandler = ({state, handlers}: CommonHandlerArgs) => {
   const servoYMin = 1536
   const servoYMax = 2550
 
-  const {lastServoPositions, lastYoloDetectionResult} = state.data
+  const { lastServoPositions, lastYoloDetectionResult } = state.data
 
   const persons = lastYoloDetectionResult
     ?.filter((item) => item.name === 'person')
@@ -48,7 +42,7 @@ export const MoveHeadHandler = ({state, handlers}: CommonHandlerArgs) => {
   const priorityObject = persons?.pop()
 
   if (!priorityObject) {
-    handlers.rp2040(makeDrawEyesCommand({radius: 75, speed: 1}))
+    handlers.rp2040(makeDrawEyesCommand({ radius: 75, speed: 1 }))
     return
   }
   const priorityObjectX =
@@ -99,7 +93,7 @@ export const handleResetServoSettings = (handlers: StdinHandlers) => {
   handlers.cpp(makeMoveServosCommand(makeGlobalServoValues(0), 'SPEED'))
 }
 
-export const MirrorHandHandler = ({state, handlers}: CommonHandlerArgs) => {
+export const MirrorHandHandler = ({ state, handlers }: CommonHandlerArgs) => {
   const positions = state.data.lastServoPositions
   handlers.cpp(
     makeMoveServosCommand({
@@ -115,6 +109,6 @@ export const MirrorHandHandler = ({state, handlers}: CommonHandlerArgs) => {
   )
 }
 
-export const StandUpHandler = ({handlers}: CommonHandlerArgs) => {
+export const StandUpHandler = ({ handlers }: CommonHandlerArgs) => {
   handlers.cpp(makeMoveServosCommand(convertToNumberRecord(sittingPosition)))
 }
