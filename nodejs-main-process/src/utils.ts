@@ -74,44 +74,6 @@ export const comparePositions = (
   return sumOfSquares / coefficient < 1
 }
 
-// Check if the robot is upright
-export const isUpright = (
-  state: MasterHandlerState,
-  angleThreshold: number = 10,
-  gyroThreshold: number = 10,
-) => {
-  const { lastIMUData: imu } = state.data
-  if (!imu) {
-    return false
-  }
-
-  const isAngleUpright =
-    Math.abs(imu.roll) <= angleThreshold &&
-    Math.abs(imu.pitch) <= angleThreshold
-  const isGyroStable =
-    Math.abs(imu.gx) <= gyroThreshold &&
-    Math.abs(imu.gy) <= gyroThreshold &&
-    Math.abs(imu.gz) <= gyroThreshold
-
-  // Return true if both conditions are satisfied
-  return isAngleUpright && isGyroStable
-}
-
-export const isRobotSitting = (state: MasterHandlerState): boolean => {
-  if (
-    !sittingPosition ||
-    !state.data.lastServoPositions ||
-    !state.data.lastIMUData
-  ) {
-    return false
-  }
-
-  return (
-    comparePositions(state.data.lastServoPositions, sittingPosition) &&
-    isUpright(state)
-  )
-}
-
 export const makeGlobalServoValues = (value: number) => {
   const result: Record<number, number> = {}
   Object.keys(ServoIDs).forEach((id) => {
@@ -144,8 +106,8 @@ export const makeLegServoValues = (value: number) => {
 }
 
 
-type RunLoopControl = {
-  stop: () => void;
+export type RunLoopControl = {
+  stop: () => Promise<void>;
   pause: () => void;
   resume: () => void;
   isRunning: () => boolean;
@@ -157,11 +119,12 @@ export function createRunLoop(
   options?: {
     avgWindowSize?: number;
     logEvery?: number;
+    shouldLog?: boolean;
   }
 ): RunLoopControl {
   const avgWindowSize = options?.avgWindowSize ?? 100;
   const logEvery = options?.logEvery ?? 100;
-  let shouldLog = true;
+  let shouldLog = options?.shouldLog ?? true;
 
   let shouldRun = true;
   let paused = false;
@@ -169,18 +132,16 @@ export function createRunLoop(
   const durations: number[] = [];
   let cycleCount = 0;
 
+  let resolveStop: (() => void) | null = null;
+  const loopPromise = new Promise<void>((resolve) => {
+    resolveStop = resolve;
+  });
+
   async function loop() {
     while (shouldRun) {
       if (paused) {
         await new Promise((resolve) => setTimeout(resolve, targetPeriodMs));
         continue;
-      }
-
-      const now = performance.now();
-      const elapsedSinceLastStart = now - lastStart;
-
-      if (elapsedSinceLastStart > targetPeriodMs) {
-        console.warn(`[WARNING] Overrun detected: cycle took ${elapsedSinceLastStart.toFixed(2)}ms`);
       }
 
       lastStart = performance.now();
@@ -202,6 +163,16 @@ export function createRunLoop(
         durations.shift();
       }
 
+      const elapsedTotal = performance.now() - cycleStart;
+      if (elapsedTotal > targetPeriodMs) {
+        console.warn(`[WARNING] Overrun detected: cycle took ${elapsedTotal.toFixed(2)}ms`);
+      }
+
+      const remaining = targetPeriodMs - elapsedTotal;
+      if (remaining > 0) {
+        await new Promise((res) => setTimeout(res, remaining));
+      }
+
       cycleCount++;
       if (cycleCount % logEvery === 0 && shouldLog) {
         const avg = durations.reduce((sum, d) => sum + d, 0) / durations.length;
@@ -210,14 +181,16 @@ export function createRunLoop(
     }
 
     console.log(`[INFO] runLoop exited.`);
+    resolveStop?.();
   }
 
-  // Start it immediately
   loop();
 
-  // Return control object
   return {
-    stop: () => { shouldRun = false; },
+    stop: async () => {
+      shouldRun = false;
+      await loopPromise;
+    },
     pause: () => { paused = true; },
     resume: () => { paused = false; },
     isRunning: () => shouldRun && !paused,

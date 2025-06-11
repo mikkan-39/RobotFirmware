@@ -14,6 +14,12 @@ latest_detections = []
 detections_lock = threading.Lock()
 exit_event = threading.Event()
 
+# Get the directory of the current script
+script_dir = os.path.dirname(os.path.abspath(__file__))
+
+# Build the full path to `coco.txt`
+labels_path = os.path.join(script_dir, 'coco.txt')
+
 # Custom encoder for NumPy float32
 class NumpyEncoder(json.JSONEncoder):
     def default(self, obj):
@@ -63,6 +69,19 @@ def listen_for_requests():
 
 if __name__ == "__main__":
     print("INIT: Python subsystem started.")
+
+    parser = argparse.ArgumentParser(description="Detection Example")
+    parser.add_argument("-m", "--model", help="Path for the HEF model.",
+                        default="/usr/share/hailo-models/yolov8s_h8l.hef")
+    parser.add_argument("-l", "--labels", default=labels_path,
+                        help="Path to a text file containing labels.")
+    parser.add_argument("-s", "--score_thresh", type=float, default=0.5,
+                        help="Score threshold, must be a float between 0 and 1.")
+    parser.add_argument("-x", "--width", type=int, default=1920,
+                        help="Camera image width.")
+    parser.add_argument("-y", "--height", type=int, default=1080,
+                        help="Camera image height.")
+    args = parser.parse_args()
 
     # === Start ZMQ request handler thread ===
     zmq_thread = threading.Thread(target=listen_for_requests, daemon=True)

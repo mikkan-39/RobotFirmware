@@ -1,6 +1,13 @@
 import { spawn } from 'child_process'
 import { MasterHandler } from './src/masterHandler'
 import { SerialPort } from 'serialport'
+import bonjour from 'bonjour';
+
+const bonjourService = bonjour()
+bonjourService.unpublishAll()
+bonjourService.publish({
+  name: 'Robot', type: 'http', port: 3901, host: 'yagors-pi5.local'
+});
 
 console.log('Node.js supervisor started.')
 

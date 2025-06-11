@@ -1,93 +1,110 @@
-import type { ChildProcessWithoutNullStreams } from 'child_process'
-import { MasterHandlerState, ServoIDs } from './types'
 import { SerialPort } from 'serialport'
-import { createRunLoop, isUpright, makeGlobalServoValues, makeLegServoValues, sittingPosition, standingPosition } from './utils'
-import * as zmq from "zeromq";
+import { createRunLoop, RunLoopControl } from './utils'
 import { BackboneRequestHandler } from './handlers/backboneRequestHandler'
 import { PeripheryRequestHandler } from './handlers/peripheryRequestHandler'
+import { pythonRequest } from './handlers/pythonRequestHandler'
 
-// import express from 'express'
-// import bodyParser from 'body-parser'
+import express from 'express'
+import bodyParser from 'body-parser'
 // import { WebSocket } from 'ws'
 
-// const app = express()
-// const port = 3901
-// app.use(bodyParser.json())
+const app = express()
+const port = 3901
+app.use(bodyParser.json())
 // const wss = new WebSocket.Server({ port: 3902 })
 
 export const MasterHandler = (
   BackbonePort: SerialPort,
   HeadPort: SerialPort,
 ) => {
-  // const pythonController = new RequestResponseHandler<PythonMsg>('Python', pythonProcess);
+  const peripheryController = new PeripheryRequestHandler('Periphery', HeadPort)
+  const backboneController = new BackboneRequestHandler('Backbone', BackbonePort)
 
-  // const pythonSock = new zmq.Request();
-  // pythonSock.connect("tcp://127.0.0.1:5836");
-  // await pythonSock.send(JSON.stringify({ method: "status" }));
-  // const [reply] = await pythonSock.receive();
-  // reply && console.log("Python reply:", JSON.parse(reply.toString()));
+  let currentLoop: RunLoopControl | null = null
 
-  const peripheryController = new PeripheryRequestHandler('Periphery', HeadPort);
-  const backboneController = new BackboneRequestHandler('Backbone', BackbonePort);
+  const setup = async () => {
+    await peripheryController.ping()
+    await backboneController.ping()
+    // const pyReply = await pythonRequest('PING')
+    // pyReply && console.log("Python reply:", JSON.parse(pyReply.toString()))
 
-  const state: MasterHandlerState = {
-    type: 'INIT',
-    data: {
-      lastServoPositions: {},
-      lastServoSpeeds: {},
-      lastYoloDetectionResult: [],
-    },
+    if (currentLoop == null)
+      currentLoop = createRunLoop(200, main1)
   }
 
+  setup();
 
-  const testFunc = async () => {
-    console.log(await peripheryController.ping())
-    console.log(await peripheryController.drawLoading())
-    console.log(await peripheryController.tof())
-    console.log(await peripheryController.imu())
-    console.log(await backboneController.ping())
-    console.log(await backboneController.queryPositions())
-    console.log(await backboneController.querySpeed())
-
-    console.log(await backboneController.setSpeed(makeGlobalServoValues(500)))
-    console.log(await backboneController.setPos({ 2: 2048 }))
-    setTimeout(async () => { console.log(await backboneController.setPos(makeLegServoValues(2048))) }, 3000)
-    setTimeout(async () => { console.log(await backboneController.setPos({ 2: 4095 })) }, 5000)
-    setTimeout(async () => { console.log(await backboneController.setPos({ 2: 2048 })) }, 10000)
-    setTimeout(async () => { console.log(await backboneController.exit()); console.log(await peripheryController.drawInit()) }, 11000)
-
-    // async function main() {
-    //   console.log(await backboneController.queryPositions())
-    // }
-
-    // const runLoop = createRunLoop(20, main);
+  async function main1() {
+    console.log('running main1')
   }
 
-  testFunc();
+  async function main2() {
+    console.log('running main2')
+  }
 
-
+  async function main3() {
+    console.log('running main3')
+  }
 
   // runLoop.stop()
   // runLoop.pause()
   // runLoop.resume()
   // runLoop.isRunning()
 
-  // app.get('/state', (_, res) => {
-  //   res.json({ state })
-  // })
 
-  // app.patch('/state', (req, res) => {
-  //   if (!Object.keys(req.body).every((key) => key in state)) {
-  //     res.statusCode = 400
-  //   } else {
-  //     Object.assign(state, req.body)
-  //     res.json({ message: 'State updated successfully.', state })
-  //   }
-  // })
+  const mainMap: Record<string, () => Promise<void>> = {
+    main1,
+    main2,
+    main3,
+  };
 
-  // app.listen(port, () => {
-  //   console.log(`Robot server running on port ${port}`)
-  // })
+  app.get('/start', async (_, res) => {
+    res.status(200).send()
+    peripheryController.drawLoading()
+    if (currentLoop == null)
+      currentLoop = createRunLoop(200, main1)
+  })
+
+  app.get('/stop', async (_, res) => {
+    res.status(200).send()
+    if (currentLoop) {
+      console.log(`[INFO] Stopping current loop...`);
+      await currentLoop.stop();
+      currentLoop = null;
+    }
+    flag = !flag
+    peripheryController.drawInit()
+  })
+
+  let flag = false;
+  app.get('/ping', async (_, res) => {
+    res.status(200).send()
+    flag = !flag
+    peripheryController.drawEyes({ radius: flag ? 30 : 90, speed: 10 })
+  })
+
+  app.post('/switchMain', async (req, res) => {
+    const mainName = req.body?.main;
+
+    if (!mainMap[mainName]) {
+      res.status(400).send(`Unknown main function: ${mainName}`);
+      return;
+    }
+
+    if (currentLoop) {
+      console.log(`[INFO] Stopping current loop...`);
+      await currentLoop.stop();
+      currentLoop = null;
+    }
+
+    console.log(`[INFO] Starting ${mainName} loop`);
+    currentLoop = createRunLoop(200, mainMap[mainName]); // adjust period as needed
+    res.send(`Switched to ${mainName}`);
+  });
+
+  app.listen(port, () => {
+    console.log(`Robot server running on port ${port}`)
+  })
 
   // wss.on('connection', (ws) => {
   //   console.log('WebSocket connection established')
