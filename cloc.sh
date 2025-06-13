@@ -1,0 +1,1 @@
+cloc --exclude-dir=.vscode,node_modules,venv,build,dist,yarn.lock,package.json,package-lock.json .
