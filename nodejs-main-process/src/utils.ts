@@ -1,5 +1,5 @@
 import { writeFile, readFileSync } from 'fs'
-import { MasterHandlerState, ServoIDs } from './types'
+import { MasterHandlerState, servoConfig, ServoIDs, ServoMiddle, ServoRangeMax, ServoRangeMin } from './types'
 import { performance } from 'perf_hooks';
 import e from 'express';
 
@@ -247,4 +247,58 @@ export const crouchedPosition = {
   "18": 2443,
   "19": 2049,
   "20": 2047
+}
+
+function clampServoValue(value: number, id: number): number {
+  if (value < ServoRangeMin || value > ServoRangeMax) {
+    console.warn(`[servo ${id}] Value ${value} out of range, clamped to [${ServoRangeMin}, ${ServoRangeMax}]`);
+    return Math.min(Math.max(value, ServoRangeMin), ServoRangeMax);
+  }
+  return value;
+}
+
+export function makeRawPositions(target: ServoPositions): ServoPositions {
+  const result: ServoPositions = {};
+
+  for (const [idStr, rawValue] of Object.entries(target)) {
+    const id = Number(idStr);
+    const config = servoConfig[id];
+    if (!config) throw new Error(`Unknown servo ID: ${id}`);
+
+    const raw = rawValue + config.offset;
+    result[id] = clampServoValue(raw, id);
+  }
+
+  return result;
+}
+
+export function makePositions(target: ServoPositions): ServoPositions {
+  const result: ServoPositions = {};
+
+  for (const [idStr, rawValue] of Object.entries(target)) {
+    const id = Number(idStr);
+    const config = servoConfig[id];
+    if (!config) throw new Error(`Unknown servo ID: ${id}`);
+
+    const raw = ServoMiddle + config.direction * rawValue + config.offset;
+    result[id] = clampServoValue(raw, id);
+  }
+
+  return result;
+}
+
+export function makeRadPositions(target: ServoPositions): ServoPositions {
+  const result: ServoPositions = {};
+
+  for (const [idStr, rawValue] of Object.entries(target)) {
+    const id = Number(idStr);
+    const config = servoConfig[id];
+    if (!config) throw new Error(`Unknown servo ID: ${id}`);
+
+    const normalized = rawValue / Math.PI; // –1 to 1
+    const raw = ServoMiddle + config.direction * normalized * (ServoRangeMax - ServoMiddle) + config.offset;
+    result[id] = clampServoValue(Math.round(raw), id);
+  }
+
+  return result;
 }

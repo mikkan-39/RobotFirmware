@@ -56,4 +56,37 @@ export const ServoIDs = {
   HEAD_VERTICAL: 22,
 } as const
 
-export const ServoMiddle = 2048 as const
+
+export const ServoMiddle = 2048 as const;
+export const ServoRangeMin = 0 as const;
+export const ServoRangeMax = 4095 as const;
+
+export type ServoID = number;
+export type ServoPositions = Record<ServoID, number>;
+
+export const servoConfig: Record<ServoID, { direction: 1 | -1; offset: number }> = {
+  [ServoIDs.SHOULDER_MAIN_R]: { direction: 1, offset: 0 },
+  [ServoIDs.SHOULDER_TILT_R]: { direction: 1, offset: 0 },
+  [ServoIDs.ELBOW_ROTATE_R]: { direction: 1, offset: 0 },
+  [ServoIDs.ELBOW_MAIN_R]: { direction: 1, offset: 0 },
+  [ServoIDs.HIP_ROTATE_R]: { direction: 1, offset: 0 },
+  [ServoIDs.HIP_TILT_R]: { direction: 1, offset: 0 },
+  [ServoIDs.HIP_MAIN_R]: { direction: 1, offset: 0 },
+  [ServoIDs.KNEE_R]: { direction: 1, offset: 0 },
+  [ServoIDs.FOOT_MAIN_R]: { direction: 1, offset: 0 },
+  [ServoIDs.FOOT_TILT_R]: { direction: 1, offset: 0 },
+
+  [ServoIDs.SHOULDER_MAIN_L]: { direction: -1, offset: 0 },
+  [ServoIDs.SHOULDER_TILT_L]: { direction: -1, offset: 0 },
+  [ServoIDs.ELBOW_ROTATE_L]: { direction: -1, offset: 0 },
+  [ServoIDs.ELBOW_MAIN_L]: { direction: -1, offset: 0 },
+  [ServoIDs.HIP_ROTATE_L]: { direction: -1, offset: 0 },
+  [ServoIDs.HIP_TILT_L]: { direction: -1, offset: 0 },
+  [ServoIDs.HIP_MAIN_L]: { direction: -1, offset: 0 },
+  [ServoIDs.KNEE_L]: { direction: -1, offset: 0 },
+  [ServoIDs.FOOT_MAIN_L]: { direction: -1, offset: 0 },
+  [ServoIDs.FOOT_TILT_L]: { direction: -1, offset: 0 },
+
+  [ServoIDs.HEAD_HORIZONTAL]: { direction: 1, offset: 0 },
+  [ServoIDs.HEAD_VERTICAL]: { direction: 1, offset: 0 },
+} as const;
