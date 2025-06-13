@@ -16,6 +16,12 @@ export type RawPythonReadCamMsg = [
   probability: number,
 ][]
 
+export type RawYoloDetectionResults = [
+  string,
+  [xs: number, ys: number, xe: number, ye: number],
+  number
+][]
+
 export type YoloDetectionResults = {
   name: string
   coords: [xs: number, ys: number, xe: number, ye: number]

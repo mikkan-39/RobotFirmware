@@ -1,6 +1,6 @@
 import { SerialPort } from "serialport";
 
-const DEFAULT_REQUEST_TIMEOUT_MS = 15;
+const DEFAULT_REQUEST_TIMEOUT_MS = 100;
 
 function calculateChecksum(data: Buffer): number {
   let crc = 0x00;
@@ -69,7 +69,7 @@ export abstract class BaseUartRequestHandler<CommandType, StatusCodeType, Respon
       if (this.pendingPromise) {
         const end = process.hrtime.bigint();
         const micros = this.requestStartTime ? Number((end - this.requestStartTime) / 1000n) : -1;
-        console.log(`[${this.name}] [${this.lastCommand}] Response received in ${micros} µs:`);
+        // console.log(`[${this.name}] [${this.lastCommand}] Response received in ${micros} µs:`);
         this.requestStartTime = null;
         this.pendingPromise.resolve(result);
         clearTimeout(this.timeoutHandle!);

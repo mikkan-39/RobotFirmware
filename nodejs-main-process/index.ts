@@ -35,8 +35,6 @@ const BackbonePort = new SerialPort({
 //   // Send termination signals to the child processes
 //   console.log('Cleaning up...')
 //   pythonProcess.kill('SIGTERM')
-//   // HeadPort.write('DRAW_INIT\n') // Resetting RP2040 state
-//   BackbonePort.write('EXIT\n')
 //   process.exit()
 // }
 
@@ -54,4 +52,8 @@ const BackbonePort = new SerialPort({
 // process.on('exit', cleanup) // Handle normal exit
 
 // Main
-MasterHandler(BackbonePort, PeripheryPort)
+try {
+  MasterHandler(BackbonePort, PeripheryPort)
+} catch (err) {
+  console.error(err)
+}

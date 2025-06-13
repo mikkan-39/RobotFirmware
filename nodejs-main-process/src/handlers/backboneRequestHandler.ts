@@ -7,8 +7,11 @@ export enum BackboneCommands {
   QUERY_SPEED = 0x03,
   SET_POS = 0x04,
   SET_SPEED = 0x05,
-  SET_ENABLED = 0x06,
-  EXIT = 0x07,
+  SET_SYMMETRIC_ACCEL = 0x06,
+  SET_ACCEL = 0x07,
+  SET_DECEL = 0x08,
+  SET_ENABLED = 0x09,
+  EXIT = 0x0A,
 }
 
 export enum BackboneStatusCodes {
@@ -44,9 +47,10 @@ export class BackboneRequestHandler extends BaseUartRequestHandler<BackboneComma
   private buildInt16Payload(data: Record<number, number | undefined>): Buffer {
     const buffers: Buffer[] = [];
     for (const [id, value] of Object.entries(data)) {
-      if (value === undefined) continue;
+      if (value === undefined || value < 0) continue;
       const buf = Buffer.alloc(3);
-      buf[0] = parseInt(id);
+      const intId = parseInt(id);
+      buf.writeUint8(intId, 0)
       buf.writeInt16LE(value, 1);
       buffers.push(buf);
     }
@@ -124,6 +128,37 @@ export class BackboneRequestHandler extends BaseUartRequestHandler<BackboneComma
     const payload = this.buildInt16Payload(data);
     const packet = this.buildCommandPacket(BackboneCommands.SET_SPEED, payload);
     return this.sendRaw(packet, BackboneCommands.SET_SPEED);
+  }
+
+  /**
+   * Set servo accel symmetrically.
+   * @param data map of servo ids and their accel.
+   */
+  async setAccelSymmetric(data: Record<number, number | undefined>) {
+    const payload = this.buildInt16Payload(data);
+    const packet = this.buildCommandPacket(BackboneCommands.SET_SYMMETRIC_ACCEL, payload);
+    return this.sendRaw(packet, BackboneCommands.SET_SYMMETRIC_ACCEL);
+  }
+
+
+  /**
+   * Set servo accel.
+   * @param data map of servo ids and their accel.
+   */
+  async setAccel(data: Record<number, number | undefined>) {
+    const payload = this.buildInt16Payload(data);
+    const packet = this.buildCommandPacket(BackboneCommands.SET_ACCEL, payload);
+    return this.sendRaw(packet, BackboneCommands.SET_ACCEL);
+  }
+
+  /**
+   * Set servo decel.
+   * @param data map of servo ids and their decel.
+   */
+  async setDecel(data: Record<number, number | undefined>) {
+    const payload = this.buildInt16Payload(data);
+    const packet = this.buildCommandPacket(BackboneCommands.SET_DECEL, payload);
+    return this.sendRaw(packet, BackboneCommands.SET_DECEL);
   }
 
   /**

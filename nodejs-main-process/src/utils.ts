@@ -1,6 +1,7 @@
 import { writeFile, readFileSync } from 'fs'
 import { MasterHandlerState, ServoIDs } from './types'
 import { performance } from 'perf_hooks';
+import e from 'express';
 
 export const saveJSON = (
   object: Record<string | number, any>,
@@ -131,6 +132,7 @@ export function createRunLoop(
   let lastStart = performance.now();
   const durations: number[] = [];
   let cycleCount = 0;
+  let errorCount = 0;
 
   let resolveStop: (() => void) | null = null;
   const loopPromise = new Promise<void>((resolve) => {
@@ -149,11 +151,17 @@ export function createRunLoop(
 
       try {
         await main();
+        errorCount = 0;
       } catch (err) {
-        console.error(`[FATAL ERROR] main() threw an error, stopping runLoop.`);
-        console.error(err);
-        shouldRun = false;
-        break;
+        if (errorCount < 10) {
+          errorCount += 1;
+          console.warn(`Warning! main() threw error №${errorCount}: ${err}`)
+        } else {
+          console.error(`[FATAL ERROR] main() threw ${errorCount} errors in a row, stopping runLoop.`);
+          console.error(err);
+          shouldRun = false;
+          break;
+        }
       }
 
       const cycleEnd = performance.now();
@@ -195,4 +203,48 @@ export function createRunLoop(
     resume: () => { paused = false; },
     isRunning: () => shouldRun && !paused,
   };
+}
+
+type ServoPositions = Record<number, number>;
+
+export function calculateServoSpeeds(
+  current: ServoPositions,
+  target: ServoPositions,
+  durationSec: number
+): Record<string, number> {
+  const speeds: Record<string, number> = {};
+
+  for (const id in target) {
+    const currentPos = current[id];
+    if (currentPos === undefined) {
+      throw new Error(`Missing current position for servo ID ${id}`);
+    }
+    if (target[id] === undefined) {
+      throw new Error(`Missing target position for servo ID ${id}`);
+    }
+
+    const delta = Math.abs(target[id] - currentPos); // now safe
+    speeds[id] = Math.round(delta / durationSec);
+  }
+
+  return speeds;
+}
+
+export function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+export const crouchedPosition = {
+  "9": 2046,
+  "10": 2050,
+  "11": 2100,
+  "12": 2000,
+  "13": 1610,
+  "14": 2490,
+  "15": 2800,
+  "16": 1300,
+  "17": 1680,
+  "18": 2443,
+  "19": 2049,
+  "20": 2047
 }

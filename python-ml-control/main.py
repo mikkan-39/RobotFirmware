@@ -10,7 +10,7 @@ import threading
 import time
 
 # Shared state
-latest_detections = []
+latest_detections_json = b'[]'
 detections_lock = threading.Lock()
 exit_event = threading.Event()
 
@@ -48,7 +48,6 @@ def listen_for_requests():
         try:
             msg = sock.recv_json(flags=zmq.NOBLOCK)
         except zmq.Again:
-            time.sleep(0.005)
             continue
 
         method = msg.get("method")
@@ -57,7 +56,7 @@ def listen_for_requests():
 
         elif method == "READ_CAMERA":
             with detections_lock:
-                sock.send_json(latest_detections, cls=NumpyEncoder)
+                sock.send(latest_detections_json)
 
         elif method == "EXIT":
             sock.send_json({"ok": True})
@@ -92,6 +91,9 @@ if __name__ == "__main__":
         model_h, model_w, _ = hailo.get_input_shape()
         video_w, video_h = args.width, args.height
 
+        with open(args.labels, 'r', encoding="utf-8") as f:
+            class_names = f.read().splitlines()
+
         with Picamera2() as picam2:
             main = {'size': (video_w, video_h), 'format': 'XRGB8888'}
             lores = {'size': (model_w, model_h), 'format': 'RGB888'}
@@ -108,11 +110,10 @@ if __name__ == "__main__":
                     frame = picam2.capture_array('lores')
                     results = hailo.run(frame)
                     new_detections = extract_detections(results, video_w, video_h, class_names, args.score_thresh)
-
+                    new_detections_json = json.dumps(new_detections, cls=NumpyEncoder).encode('utf-8')
                     with detections_lock:
-                        latest_detections = new_detections
+                        latest_detections_json = new_detections_json
 
-                    time.sleep(0.01)  # Tune based on CPU usage
                 except Exception as e:
                     print("ERROR during detection loop:", e)
 
