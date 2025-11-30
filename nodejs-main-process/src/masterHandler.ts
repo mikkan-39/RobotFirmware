@@ -4,6 +4,7 @@ import { BackboneRequestHandler } from './handlers/backboneRequestHandler'
 import { PeripheryRequestHandler } from './handlers/peripheryRequestHandler'
 import { connectPythonSock, pythonRequest, pythonSockSetTimeouts } from './handlers/pythonRequestHandler'
 import { ServoIDs } from './types'
+import { PolicyRunner, POLICY_TO_SERVO, computeProjectedGravity } from './policyRunner'
 
 import express from 'express'
 import bodyParser from 'body-parser'
@@ -24,6 +25,11 @@ export const MasterHandler = (
   connectPythonSock()
 
   let currentLoop: RunLoopControl | null = null
+
+  // Policy runner for locomotion control
+  let policyRunner: PolicyRunner | null = null
+  let policyEnabled = false
+  let cmdVel: [number, number, number] = [0.0, 0.0, 0.0] // [vx, vy, wz]
 
   const setup = async () => {
     console.log(await peripheryController.ping())
@@ -125,8 +131,69 @@ export const MasterHandler = (
     }
   }
 
+  /**
+   * Policy-controlled locomotion loop (50Hz).
+   * Reads IMU + servo positions, runs inference, sends servo commands.
+   */
   async function main3() {
-    // console.log('running main3')
+    if (!policyRunner || !policyEnabled) {
+      return
+    }
+
+    try {
+      // Read sensors in parallel
+      // Note: servoSpeeds commented out - policy trained without velocity observations
+      const [imuData, servoPositions /*, servoSpeeds */] = await Promise.all([
+        peripheryController.imu(),
+        backboneController.queryPositions(),
+        // backboneController.querySpeed(),
+      ])
+
+      // Check for excessive tilt (emergency stop)
+      if (policyRunner.checkExcessiveTilt(imuData.quat)) {
+        const projGrav = computeProjectedGravity(imuData.quat)
+        console.warn('[main3] Excessive tilt detected! Disabling policy.')
+        console.log('quat:', imuData.quat, 'projectedGravity:', projGrav)
+        policyEnabled = false
+        return
+      }
+
+      // // DEBUG: Print raw IMU data
+      // console.log('IMU raw:', {
+      //   acc: imuData.acc,
+      //   gyro: imuData.gyro,
+      //   projGrav: computeProjectedGravity(imuData.quat),
+      // });
+
+      // DEBUG: Print servo positions
+      console.log('servoPositions:', servoPositions);
+
+      // Build observation vector
+      const obs = policyRunner.buildObservation(
+        imuData,
+        servoPositions,
+        // servoSpeeds,  // commented out - policy trained without velocity observations
+        cmdVel,
+      )
+      
+      // DEBUG: Print observation joint positions (indices 12-25)
+      console.log('obs jointPosRel:', obs.slice(12, 26).map(v => v.toFixed(3)));
+
+      // Run policy inference
+      const actions = policyRunner.step(obs)
+
+      // Convert to servo positions
+      const servoTargets = policyRunner.actionsToServoPositions(actions)
+
+      // DEBUG: Print actions and servo targets
+      console.log('actions:', actions.map(a => a.toFixed(3)));
+      console.log('servoTargets:', servoTargets);
+
+      // Send to servos
+      await backboneController.setPos(servoTargets)
+    } catch (err) {
+      console.error('[main3] Error in policy loop:', err)
+    }
   }
 
   // runLoop.stop()
@@ -286,7 +353,7 @@ export const MasterHandler = (
     }
 
     console.log(`[INFO] Starting ${mainName} loop`);
-    currentLoop = createRunLoop(40, mainMap[mainName]);
+    currentLoop = createRunLoop(20, mainMap[mainName]);
     res.send(`Switched to ${mainName}`);
   });
 
@@ -297,6 +364,201 @@ export const MasterHandler = (
       await currentLoop.stop();
       currentLoop = null;
     }
+  })
+
+  // Policy control endpoints
+
+  /**
+   * Initialize the policy runner with model path.
+   * POST /policy/init { modelPath?: string }
+   */
+  app.post('/policy/init', async (req, res) => {
+    const modelPath = req.body?.modelPath ?? 'policy.pt'
+    try {
+      policyRunner = new PolicyRunner(modelPath)
+      res.send({ success: true, message: `Policy loaded from ${modelPath}` })
+    } catch (err) {
+      console.error('[policy/init] Error:', err)
+      res.status(500).send({ success: false, error: String(err) })
+    }
+  })
+
+  /**
+   * Enable policy control and start main3 loop at 50Hz.
+   * GET /policy/enable
+   */
+  app.get('/policy/enable', async (_, res) => {
+    if (!policyRunner) {
+      res.status(400).send({ success: false, error: 'Policy not initialized. Call /policy/init first.' })
+      return
+    }
+
+    // Stop any existing loop
+    if (currentLoop) {
+      await currentLoop.stop()
+      currentLoop = null
+    }
+
+    policyRunner.reset()
+    policyEnabled = true
+    cmdVel = [0.0, 0.0, 0.0] // Start stationary
+
+    // Start main3 at 50Hz (20ms period)
+    currentLoop = createRunLoop(20, main3, { shouldLog: true })
+    console.log('[policy/enable] Policy control enabled at 50Hz')
+    res.send({ success: true, message: 'Policy enabled' })
+  })
+
+  /**
+   * Disable policy control.
+   * GET /policy/disable
+   */
+  app.get('/policy/disable', async (_, res) => {
+    policyEnabled = false
+    if (currentLoop) {
+      await currentLoop.stop()
+      currentLoop = null
+    }
+    console.log('[policy/disable] Policy control disabled')
+    res.send({ success: true, message: 'Policy disabled' })
+  })
+
+  /**
+   * Set velocity command [vx, vy, wz].
+   * POST /policy/cmd { vx: number, vy: number, wz: number }
+   * 
+   * Safe ranges from training:
+   *   vx: [0.0, 1.0] m/s
+   *   vy: [0.0, 0.0] m/s (no lateral)
+   *   wz: [-1.0, 1.0] rad/s
+   */
+  app.post('/policy/cmd', (req, res) => {
+    const { vx = 0, vy = 0, wz = 0 } = req.body ?? {}
+
+    // Clamp to training distribution
+    const clampedVx = Math.max(0, Math.min(1.0, Number(vx)))
+    const clampedVy = 0 // No lateral movement supported
+    const clampedWz = Math.max(-1.0, Math.min(1.0, Number(wz)))
+
+    cmdVel = [clampedVx, clampedVy, clampedWz]
+    console.log(`[policy/cmd] Set velocity: vx=${clampedVx}, vy=${clampedVy}, wz=${clampedWz}`)
+    res.send({ success: true, cmdVel })
+  })
+
+  /**
+   * Get current policy status.
+   * GET /policy/status
+   */
+  app.get('/policy/status', (_, res) => {
+    res.send({
+      initialized: policyRunner !== null,
+      enabled: policyEnabled,
+      cmdVel,
+      loopRunning: currentLoop?.isRunning() ?? false,
+    })
+  })
+
+  /**
+   * Joint verification test - bypasses policy, sets one joint at a time.
+   * GET /policy/test/:jointIndex
+   * 
+   * Sets the specified joint to a test angle while keeping others at 0.
+   * Returns expected visual appearance for verification.
+   */
+  const JOINT_TESTS: { index: number; testValue: number; name: string; expected: string }[] = [
+    { index: 0,  testValue: +0.3, name: 'SHOULDER_MAIN_R', expected: 'Right arm swings FORWARD ~17°' },
+    { index: 1,  testValue: -0.3, name: 'SHOULDER_MAIN_L', expected: 'Left arm swings FORWARD ~17° (URDF uses negative)' },
+    { index: 2,  testValue: +0.3, name: 'HIP_ROTATE_R', expected: 'Right toe rotates OUTWARD ~17°' },
+    { index: 3,  testValue: +0.3, name: 'HIP_ROTATE_L', expected: 'Left toe rotates OUTWARD ~17°' },
+    { index: 4,  testValue: +0.25, name: 'HIP_TILT_L', expected: 'Left leg ABDUCTS (moves outward) ~14°' },
+    { index: 5,  testValue: -0.25, name: 'HIP_TILT_R', expected: 'Right leg ABDUCTS (moves outward) ~14° (URDF uses negative)' },
+    { index: 6,  testValue: -0.4, name: 'HIP_MAIN_L', expected: 'Left thigh moves FORWARD ~23° (URDF uses negative)' },
+    { index: 7,  testValue: +0.4, name: 'HIP_MAIN_R', expected: 'Right thigh moves FORWARD ~23°' },
+    { index: 8,  testValue: +0.5, name: 'KNEE_L', expected: 'Left knee BENDS ~29°' },
+    { index: 9,  testValue: -0.5, name: 'KNEE_R', expected: 'Right knee BENDS ~29° (URDF uses negative)' },
+    { index: 10, testValue: +0.3, name: 'FOOT_MAIN_R', expected: 'Right ankle: toe points UP ~17°' },
+    { index: 11, testValue: -0.3, name: 'FOOT_MAIN_L', expected: 'Left ankle: toe points UP ~17° (URDF uses negative)' },
+    { index: 12, testValue: +0.2, name: 'FOOT_TILT_L', expected: 'Left foot ROLLS ~11°' },
+    { index: 13, testValue: +0.2, name: 'FOOT_TILT_R', expected: 'Right foot ROLLS ~11°' },
+  ]
+
+  app.get('/policy/test/:jointIndex', async (req, res) => {
+    const jointIndex = parseInt(req.params.jointIndex)
+    
+    if (isNaN(jointIndex) || jointIndex < 0 || jointIndex >= 14) {
+      res.status(400).send({ error: 'Joint index must be 0-13' })
+      return
+    }
+
+    // Stop any running loop
+    if (currentLoop) {
+      await currentLoop.stop()
+      currentLoop = null
+    }
+    policyEnabled = false
+
+    // Create test actions: all zeros except the test joint
+    const testActions = new Array(14).fill(0)
+    const test = JOINT_TESTS[jointIndex]!
+    testActions[jointIndex] = test.testValue
+
+    // Use PolicyRunner to convert to servo positions (applies POLICY_SIGN_FLIP)
+    if (!policyRunner) {
+      policyRunner = new PolicyRunner('policy.pt')
+    }
+    const servoTargets = policyRunner.actionsToServoPositions(testActions)
+
+    // Set slow speed for safety
+    const speedTargets: Record<number, number> = {}
+    for (const servoId of Object.keys(servoTargets)) {
+      speedTargets[Number(servoId)] = 500
+    }
+    await backboneController.setSpeed(speedTargets)
+    await backboneController.setPos(servoTargets)
+
+    console.log(`[policy/test] Joint ${jointIndex} (${test.name}) set to ${test.testValue} rad`)
+    console.log(`[policy/test] Expected: ${test.expected}`)
+    console.log(`[policy/test] Servo targets:`, servoTargets)
+
+    res.send({
+      jointIndex,
+      jointName: test.name,
+      testValue: test.testValue,
+      testValueDeg: Math.round(test.testValue * 180 / Math.PI),
+      expected: test.expected,
+      servoTargets,
+    })
+  })
+
+  /**
+   * Reset all joints to neutral (0 rad).
+   * GET /policy/test/reset
+   */
+  app.get('/policy/test-reset', async (_, res) => {
+    // Stop any running loop
+    if (currentLoop) {
+      await currentLoop.stop()
+      currentLoop = null
+    }
+    policyEnabled = false
+
+    // All zeros
+    const testActions = new Array(14).fill(0)
+    
+    if (!policyRunner) {
+      policyRunner = new PolicyRunner('policy.pt')
+    }
+    const servoTargets = policyRunner.actionsToServoPositions(testActions)
+
+    const speedTargets: Record<number, number> = {}
+    for (const servoId of Object.keys(servoTargets)) {
+      speedTargets[Number(servoId)] = 500
+    }
+    await backboneController.setSpeed(speedTargets)
+    await backboneController.setPos(servoTargets)
+
+    console.log('[policy/test-reset] All joints set to 0 (neutral)')
+    res.send({ message: 'All joints reset to neutral', servoTargets })
   })
 
   app.listen(port, () => {
