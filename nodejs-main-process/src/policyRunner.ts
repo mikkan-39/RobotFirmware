@@ -136,7 +136,9 @@ export function computeProjectedGravity(quat: number[]): [number, number, number
   const gx = 2 * (qx * qz - qw * qy);
   const gy = 2 * (qy * qz + qw * qx);
   const gz = 1 - 2 * (qx * qx + qy * qy);
-  return [gx, gy, -gz];
+  // IMU is rotated 180° around Z relative to sim body frame
+  // So negate both gx and gy
+  return [-gx, -gy, -gz];
 }
 
 export class PolicyRunner {
@@ -239,10 +241,12 @@ export class PolicyRunner {
     const G_TO_MS2 = 9.81;
     const DEG_TO_RAD = Math.PI / 180;
 
+    // IMU is rotated 180° around Z relative to sim body frame
+    // So negate X and Y components of acc and gyro
     const obs: number[] = [
-      // Base linear acceleration (3) - converted from g to m/s²
+      // Base linear acceleration (3) - converted from g to m/s², with 180° Z rotation
       imu.acc[0]! * G_TO_MS2, imu.acc[1]! * G_TO_MS2, imu.acc[2]! * G_TO_MS2,
-      // Base angular velocity (3) - converted from deg/s to rad/s
+      // Base angular velocity (3) - converted from deg/s to rad/s, with 180° Z rotation
       imu.gyro[0]! * DEG_TO_RAD, imu.gyro[1]! * DEG_TO_RAD, imu.gyro[2]! * DEG_TO_RAD,
       // Projected gravity (3) - computed from quaternion
       projectedGravity[0], projectedGravity[1], projectedGravity[2],
@@ -259,6 +263,11 @@ export class PolicyRunner {
     if (obs.length !== OBS_SIZE) {
       throw new Error(`Observation size mismatch: expected ${OBS_SIZE}, got ${obs.length}`);
     }
+
+    // console.log('obs:', JSON.stringify(obs, null, 2))
+    console.log('acc obs:', JSON.stringify(obs.slice(0, 3), null, 2))
+    console.log('gyro obs:', JSON.stringify(obs.slice(3, 6), null, 2))
+    console.log('grav obs:', JSON.stringify(obs.slice(6, 9), null, 2))
 
     return obs;
   }

@@ -177,7 +177,7 @@ export const MasterHandler = (
       )
       
       // DEBUG: Print observation joint positions (indices 12-25)
-      console.log('obs jointPosRel:', obs.slice(12, 26).map(v => v.toFixed(3)));
+      // console.log('obs jointPosRel:', obs.slice(12, 26).map(v => v.toFixed(3)));
 
       // Run policy inference
       const actions = policyRunner.step(obs)
@@ -187,10 +187,10 @@ export const MasterHandler = (
 
       // DEBUG: Print actions and servo targets
       console.log('actions:', actions.map(a => a.toFixed(3)));
-      console.log('servoTargets:', servoTargets);
+      // console.log('servoTargets:', servoTargets);
 
       // Send to servos
-      await backboneController.setPos(servoTargets)
+      // await backboneController.setPos(servoTargets)
     } catch (err) {
       console.error('[main3] Error in policy loop:', err)
     }
@@ -392,6 +392,7 @@ export const MasterHandler = (
       res.status(400).send({ success: false, error: 'Policy not initialized. Call /policy/init first.' })
       return
     }
+    // await backboneController.setSpeed(makeGlobalServoValues(0))
 
     // Stop any existing loop
     if (currentLoop) {
