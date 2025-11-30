@@ -36,7 +36,31 @@ export const MasterHandler = (
   setup();
 
   async function main1() {
-    // console.log('running main1')
+    const servoPositions = await backboneController.queryPositions()
+    await backboneController.setEnabled({
+      1: false,
+      3: false,
+      5: false,
+      7: false
+    })
+    await backboneController.setAccelSymmetric({
+      2: 300,
+      4: 300,
+      6: 300,
+      8: 300
+    })
+    await backboneController.setSpeed({
+      2: 0,
+      4: 0,
+      6: 0,
+      8: 0
+    })
+    await backboneController.setPos({
+      2: 4095 - (servoPositions[1] ?? 0),
+      4: 4095 - (servoPositions[3] ?? 0),
+      6: 4095 - (servoPositions[5] ?? 0),
+      8: 4095 - (servoPositions[7] ?? 0),
+    })
   }
 
 
@@ -59,14 +83,15 @@ export const MasterHandler = (
     }
   }, 1000)
 
-  let shouldLookAtHoomans = true
-  let randomLookAroundCounter = 100;
-  setInterval(() => {
-    if (Math.random() > 0.75) {
-      shouldLookAtHoomans = !shouldLookAtHoomans;
-      console.log({ shouldLookAtHoomans });
-    }
-  }, 3000)
+  // let shouldLookAtHoomans = true
+  // setInterval(() => {
+  //   if (Math.random() > 0.75) {
+  //     shouldLookAtHoomans = !shouldLookAtHoomans;
+  //     console.log({ shouldLookAtHoomans });
+  //   }
+  // }, 3000)
+
+  let randomLookAroundCounter = 50;
 
   async function main2() {
     // console.log('running main2')
@@ -79,7 +104,7 @@ export const MasterHandler = (
     if (randomLookAroundCounter > 0) {
       randomLookAroundCounter -= 1;
     } else {
-      randomLookAroundCounter = Math.round(Math.random() * 50) + 50
+      randomLookAroundCounter = Math.round(Math.random() * 25) + 50
       await backboneController.setSpeed({ 21: 2000, 22: 2000 })
       // if (shouldLookAtHoomans) {
       // const lastServoPositions = await backboneController.queryPositions()
@@ -122,7 +147,6 @@ export const MasterHandler = (
 
     const servoPositions = await backboneController.queryPositions()
 
-    // const desiredPositions = standingPosition
     const desiredPositions = crouchedPosition
 
     const desiredSpeeds = calculateServoSpeeds(servoPositions, desiredPositions, 3);
@@ -137,7 +161,7 @@ export const MasterHandler = (
       await currentLoop.stop();
       currentLoop = null;
     }
-    await peripheryController.drawInit()
+    // await peripheryController.drawInit()
     await backboneController.exit()
   })
 
@@ -155,11 +179,17 @@ export const MasterHandler = (
       await sleep(150)
       await peripheryController.drawEyes({ radius: 90, speed: 10 })
 
-      await backboneController.setAccelSymmetric({ 1: 300, 3: 300, 5: 200, 7: 150, 2: 300, 4: 300, 8: 300, 21: 400, 22: 400 })
+      await backboneController.setSpeed({
+        2: 1000,
+        4: 1000,
+        6: 1000,
+        8: 1000
+      })
+      await backboneController.setAccelSymmetric({ 1: 300, 3: 300, 5: 200, 7: 150, 2: 300, 4: 300, 6: 300, 8: 300, 21: 400, 22: 400 })
       await backboneController.setSpeed({ 1: 2000, 3: 2000, 7: 4000, 21: 1000, 22: 500 })
       await backboneController.setPos({ 1: 2048, 3: 2048, 5: 2048, 7: 800, 2: 4095 - 3500, 4: 4095 - 2800, 6: 2048, 8: 4095 - 800, 21: 1800, 22: 1900 })
       await sleep(1000)
-      await backboneController.setPos({ 7: 2048, 5: 2400, 22: 1700 })
+      await backboneController.setPos({ 7: 2048, 5: 2400, 22: 2100 })
       await sleep(500)
       await backboneController.setPos({ 7: 800, 5: 2048, })
       await sleep(500)
@@ -192,6 +222,12 @@ export const MasterHandler = (
       await sleep(150)
       await peripheryController.drawEyes({ radius: 90, speed: 10 })
 
+      await backboneController.setSpeed({
+        2: 1000,
+        4: 1000,
+        6: 1000,
+        8: 1000
+      })
       await backboneController.setAccelSymmetric({ 1: 300, 3: 300, 5: 200, 7: 150, 2: 300, 4: 300, 6: 300, 8: 300, 21: 400, 22: 400 })
       await backboneController.setPos({ 1: 3500, 3: 2800, 5: 2048, 7: 800, 2: 4095 - 3500, 4: 4095 - 2800, 8: 4095 - 800, 21: 1800, 22: 1900 })
       await sleep(500)
