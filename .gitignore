@@ -3,6 +3,7 @@ cpp-hardware-control/build
 nodejs-main-process/node_modules
 nodejs-main-process/hailort*
 nodejs-main-process/nohup*
+nodejs-main-process/build
 
 python-ml-control/venv
 python-ml-control/hailort*

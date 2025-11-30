@@ -4,9 +4,15 @@
   "description": "Main nodeJS process that controls all other robot functions.",
   "main": "index.js",
   "scripts": {
+    "install": "cmake-js compile",
     "start": "ts-node index.ts",
     "build": "tsc",
     "lint": "eslint src/**/*.ts"
+  },
+  "binary": {
+    "napi_versions": [
+      7
+    ]
   },
   "author": "Mikkan",
   "private": true,
@@ -16,6 +22,9 @@
     "@types/node": "^22.10.2",
     "@types/serialport": "^10.2.0",
     "@types/ws": "^8.5.14",
+    "cmake-js": "^7.4.0",
+    "node-addon-api": "^8.5.0",
+    "node-gyp": "^12.1.0",
     "prettier": "^3.4.2",
     "ts-node": "^10.9.2",
     "typescript": "^5.7.2"
