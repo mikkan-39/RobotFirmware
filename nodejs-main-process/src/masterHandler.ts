@@ -467,20 +467,20 @@ export const MasterHandler = (
    * Returns expected visual appearance for verification.
    */
   const JOINT_TESTS: { index: number; testValue: number; name: string; expected: string }[] = [
-    { index: 0,  testValue: +0.3, name: 'SHOULDER_MAIN_R', expected: 'Right arm swings FORWARD ~17°' },
-    { index: 1,  testValue: -0.3, name: 'SHOULDER_MAIN_L', expected: 'Left arm swings FORWARD ~17° (URDF uses negative)' },
-    { index: 2,  testValue: +0.3, name: 'HIP_ROTATE_R', expected: 'Right toe rotates OUTWARD ~17°' },
-    { index: 3,  testValue: +0.3, name: 'HIP_ROTATE_L', expected: 'Left toe rotates OUTWARD ~17°' },
-    { index: 4,  testValue: +0.25, name: 'HIP_TILT_L', expected: 'Left leg ABDUCTS (moves outward) ~14°' },
-    { index: 5,  testValue: -0.25, name: 'HIP_TILT_R', expected: 'Right leg ABDUCTS (moves outward) ~14° (URDF uses negative)' },
-    { index: 6,  testValue: -0.4, name: 'HIP_MAIN_L', expected: 'Left thigh moves FORWARD ~23° (URDF uses negative)' },
+    { index: 0,  testValue: +0.3, name: 'HIP_ROTATE_L', expected: 'Left toe rotates INWARD ~17°' },
+    { index: 1,  testValue: +0.3, name: 'HIP_ROTATE_R', expected: 'Right toe rotates OUTWARD ~17°' },
+    { index: 2,  testValue: +0.3, name: 'SHOULDER_MAIN_L', expected: 'Left arm swings BACKWARD ~17°' },
+    { index: 3,  testValue: +0.3, name: 'SHOULDER_MAIN_R', expected: 'Right arm swings FORWARD ~17°' },
+    { index: 4,  testValue: +0.25, name: 'HIP_TILT_L', expected: 'Left leg moves INWARD ~14°' },
+    { index: 5,  testValue: +0.25, name: 'HIP_TILT_R', expected: 'Right leg moves INWARD ~14°' },
+    { index: 6,  testValue: +0.4, name: 'HIP_MAIN_L', expected: 'Left thigh moves BACKWARD ~23°' },
     { index: 7,  testValue: +0.4, name: 'HIP_MAIN_R', expected: 'Right thigh moves FORWARD ~23°' },
     { index: 8,  testValue: +0.5, name: 'KNEE_L', expected: 'Left knee BENDS ~29°' },
-    { index: 9,  testValue: -0.5, name: 'KNEE_R', expected: 'Right knee BENDS ~29° (URDF uses negative)' },
-    { index: 10, testValue: +0.3, name: 'FOOT_MAIN_R', expected: 'Right ankle: toe points UP ~17°' },
-    { index: 11, testValue: -0.3, name: 'FOOT_MAIN_L', expected: 'Left ankle: toe points UP ~17° (URDF uses negative)' },
-    { index: 12, testValue: +0.2, name: 'FOOT_TILT_L', expected: 'Left foot ROLLS ~11°' },
-    { index: 13, testValue: +0.2, name: 'FOOT_TILT_R', expected: 'Right foot ROLLS ~11°' },
+    { index: 9,  testValue: -0.5, name: 'KNEE_R', expected: 'Right knee BENDS ~29° (- is bend)' },
+    { index: 10, testValue: -0.3, name: 'FOOT_MAIN_L', expected: 'Left ankle: toe points UP ~17° (- is toe up)' },
+    { index: 11, testValue: -0.3, name: 'FOOT_MAIN_R', expected: 'Right ankle: toe points UP ~17° (- is toe up)' },
+    { index: 12, testValue: +0.2, name: 'FOOT_TILT_L', expected: 'Left foot tilts INWARD ~11°' },
+    { index: 13, testValue: +0.2, name: 'FOOT_TILT_R', expected: 'Right foot tilts INWARD ~11°' },
   ]
 
   app.get('/policy/test/:jointIndex', async (req, res) => {

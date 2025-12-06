@@ -7,23 +7,43 @@ const addon = require('../build/Release/JSClang.node') as {
   runModel: (input: number[]) => number[];
 };
 
+/*
+Joint order and directions verified through training environment.
+  name, action index, action direction, observation index and direction is the same as in action space for all tested joints
+
+  base_link_to_LeftHipBracket_revolute, 0, + is inward 
+  base_link_to_RightHipBracket_revolute, 1, + is outward 
+  base_link_to_shoulder_joint_v1Mirror_revolute (left shoulder), 2, + is backward 
+  base_link_to_shoulder_joint_v1_revolute (right shoulder), 3, + is forward 
+  LeftHipBracket_to_HipBulkL_revolute, 4, + is inward 
+  RightHipBracket_to_HipBulkR_revolute, 5, + is inward 
+  HipBulkL_to_HipL_revolute, 6, + is backward 
+  HipBulkR_to_HipR_revolute, 7, + is forward 
+  HipL_to_TibiaL_revolute, 8, + is bend 
+  HipR_to_TibiaR_revolute, 9, - is bend 
+  TibiaL_to_FootJointL_revolute, 10, - is toe up 
+  TibiaR_to_FootJointR_revolute, 11, - is toe up 
+  FootJointL_to_LeftFoot_revolute, 12, + is foot inward 
+  FootJointR_to_RightFoot_revolute, 13, + is foot inward
+*/
+
 /**
  * Policy index to servo ID mapping.
- * Order matches URDF traversal with preserve_order=True.
+ * Order matches training environment (verified via Isaac Lab).
  */
 export const POLICY_TO_SERVO: number[] = [
-  1,   // 0: SHOULDER_MAIN_R (base_link_to_shoulder_joint_v1_revolute)
-  2,   // 1: SHOULDER_MAIN_L (base_link_to_shoulder_joint_v1Mirror_revolute)
-  9,   // 2: HIP_ROTATE_R (base_link_to_RightHipBracket_revolute)
-  10,  // 3: HIP_ROTATE_L (base_link_to_LeftHipBracket_revolute)
+  10,  // 0: HIP_ROTATE_L (base_link_to_LeftHipBracket_revolute)
+  9,   // 1: HIP_ROTATE_R (base_link_to_RightHipBracket_revolute)
+  2,   // 2: SHOULDER_MAIN_L (base_link_to_shoulder_joint_v1Mirror_revolute)
+  1,   // 3: SHOULDER_MAIN_R (base_link_to_shoulder_joint_v1_revolute)
   12,  // 4: HIP_TILT_L (LeftHipBracket_to_HipBulkL_revolute)
   11,  // 5: HIP_TILT_R (RightHipBracket_to_HipBulkR_revolute)
   14,  // 6: HIP_MAIN_L (HipBulkL_to_HipL_revolute)
   13,  // 7: HIP_MAIN_R (HipBulkR_to_HipR_revolute)
   16,  // 8: KNEE_L (HipL_to_TibiaL_revolute)
   15,  // 9: KNEE_R (HipR_to_TibiaR_revolute)
-  17,  // 10: FOOT_MAIN_R (TibiaR_to_FootJointR_revolute)
-  18,  // 11: FOOT_MAIN_L (TibiaL_to_FootJointL_revolute)
+  18,  // 10: FOOT_MAIN_L (TibiaL_to_FootJointL_revolute)
+  17,  // 11: FOOT_MAIN_R (TibiaR_to_FootJointR_revolute)
   20,  // 12: FOOT_TILT_L (FootJointL_to_LeftFoot_revolute)
   19,  // 13: FOOT_TILT_R (FootJointR_to_RightFoot_revolute)
 ];
@@ -37,22 +57,23 @@ export const SERVO_TO_POLICY: Map<number, number> = new Map(
 
 /**
  * Joint limits from URDF (radians). [min, max] per policy index.
+ * Order matches training environment (same as POLICY_TO_SERVO).
  */
 export const JOINT_LIMITS: [number, number][] = [
-  [-1.57, 3.14],   // 0: shoulder_v1
-  [-3.14, 1.57],   // 1: shoulder_v1Mirror
-  [-0.61, 0.61],   // 2: RightHipBracket
-  [-0.61, 0.61],   // 3: LeftHipBracket
-  [-0.44, 0.44],   // 4: HipBulkL
-  [-0.44, 0.44],   // 5: HipBulkR
-  [-1.57, 0.79],   // 6: HipL
-  [-0.61, 1.57],   // 7: HipR
-  [0.0, 1.92],     // 8: TibiaL (knee L)
-  [-1.92, 0.0],    // 9: TibiaR (knee R)
-  [-1.48, 0.79],   // 10: FootJointR
-  [-1.48, 0.79],   // 11: FootJointL
-  [-0.35, 0.35],   // 12: LeftFoot
-  [-0.35, 0.35],   // 13: RightFoot
+  [-0.61, 0.61],   // 0: LeftHipBracket (HIP_ROTATE_L)
+  [-0.61, 0.61],   // 1: RightHipBracket (HIP_ROTATE_R)
+  [-3.14, 1.57],   // 2: shoulder_v1Mirror (SHOULDER_MAIN_L)
+  [-1.57, 3.14],   // 3: shoulder_v1 (SHOULDER_MAIN_R)
+  [-0.44, 0.44],   // 4: HipBulkL (HIP_TILT_L)
+  [-0.44, 0.44],   // 5: HipBulkR (HIP_TILT_R)
+  [-1.57, 0.79],   // 6: HipL (HIP_MAIN_L)
+  [-0.61, 1.57],   // 7: HipR (HIP_MAIN_R)
+  [0.0, 1.92],     // 8: TibiaL (KNEE_L)
+  [-1.92, 0.0],    // 9: TibiaR (KNEE_R)
+  [-1.48, 0.79],   // 10: FootJointL (FOOT_MAIN_L)
+  [-1.48, 0.79],   // 11: FootJointR (FOOT_MAIN_R)
+  [-0.35, 0.35],   // 12: LeftFoot (FOOT_TILT_L)
+  [-0.35, 0.35],   // 13: RightFoot (FOOT_TILT_R)
 ];
 
 const NUM_JOINTS = 14;
@@ -68,20 +89,20 @@ const OBS_SIZE = 40;
  * - Reversed from initial: 0, 1, 2, 3, 6, 7, 10, 11
  */
 const POLICY_SIGN_FLIP: number[] = [
-  -1,  // 0: SHOULDER_MAIN_R - VERIFIED: was +1, reversed
-  +1,  // 1: SHOULDER_MAIN_L - VERIFIED: was -1, reversed
-  -1,  // 2: HIP_ROTATE_R - VERIFIED: was +1, reversed
-  -1,  // 3: HIP_ROTATE_L - VERIFIED: was +1, reversed
-  +1,  // 4: HIP_TILT_L - unchanged
-  -1,  // 5: HIP_TILT_R - unchanged
-  +1,  // 6: HIP_MAIN_L - VERIFIED: was -1, reversed
-  -1,  // 7: HIP_MAIN_R - VERIFIED: was +1, reversed
-  +1,  // 8: KNEE_L - symmetric convention (both knees positive when bent)
-  -1,  // 9: KNEE_R - symmetric convention (both knees positive when bent)
-  -1,  // 10: FOOT_MAIN_R - VERIFIED: was +1, reversed
-  +1,  // 11: FOOT_MAIN_L - VERIFIED: was -1, reversed
-  -1,  // 12: FOOT_TILT_L - VERIFIED: was +1, reversed (outer→inner edge)
-  -1,  // 13: FOOT_TILT_R - VERIFIED: was +1, reversed (outer→inner edge)
+  +1,  // 0: HIP_ROTATE_L - verified
+  -1,  // 1: HIP_ROTATE_R - verified
+  +1,  // 2: SHOULDER_MAIN_L - verified
+  -1,  // 3: SHOULDER_MAIN_R - verified
+  -1,  // 4: HIP_TILT_L - verified
+  -1,  // 5: HIP_TILT_R - verified
+  +1,  // 6: HIP_MAIN_L - verified
+  -1,  // 7: HIP_MAIN_R - verified
+  +1,  // 8: KNEE_L - verified
+  -1,  // 9: KNEE_R - verified
+  +1,  // 10: FOOT_MAIN_L - verified
+  +1,  // 11: FOOT_MAIN_R - verified
+  +1,  // 12: FOOT_TILT_L - verified
+  +1,  // 13: FOOT_TILT_R - verified
 ];
 
 /**
@@ -94,18 +115,18 @@ const POLICY_SIGN_FLIP: number[] = [
  * For shoulders: servo 2048 = arms forward = URDF ±1.57 rad (90° offset)
  */
 const DEFAULT_JOINT_POS: number[] = [
-  -1.57,  // 0: SHOULDER_MAIN_R - offset so action=0 → servo 3072 (arms down)
-  +1.57,  // 1: SHOULDER_MAIN_L - offset so action=0 → servo 1024 (arms down)
-  0,      // 2: HIP_ROTATE_R
-  0,      // 3: HIP_ROTATE_L
+  0,      // 0: HIP_ROTATE_L
+  0,      // 1: HIP_ROTATE_R
+  +1.57,  // 2: SHOULDER_MAIN_L - offset so action=0 → servo 1024 (arms down)
+  -1.57,  // 3: SHOULDER_MAIN_R - offset so action=0 → servo 3072 (arms down)
   0,      // 4: HIP_TILT_L
   0,      // 5: HIP_TILT_R
   0,      // 6: HIP_MAIN_L
   0,      // 7: HIP_MAIN_R
   0,      // 8: KNEE_L
   0,      // 9: KNEE_R
-  0,      // 10: FOOT_MAIN_R
-  0,      // 11: FOOT_MAIN_L
+  0,      // 10: FOOT_MAIN_L
+  0,      // 11: FOOT_MAIN_R
   0,      // 12: FOOT_TILT_L
   0,      // 13: FOOT_TILT_R
 ];
