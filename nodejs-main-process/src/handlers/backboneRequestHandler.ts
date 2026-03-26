@@ -102,12 +102,27 @@ export class BackboneRequestHandler extends BaseUartRequestHandler<BackboneComma
   }
 
   /**
-   * Get servo speeds.
+   * Decode payload as signed 16-bit values (two's complement).
+   * For speeds which are truly signed, unlike positions which use sign-magnitude.
+   */
+  private decodeServoSignedInt16Map(payload: Buffer): Record<number, number> {
+    const result: Record<number, number> = {};
+    for (let i = 0; i < payload.length; i += 3) {
+      const id = payload[i]!;
+      // readInt16LE already handles two's complement correctly
+      const value = payload.readInt16LE(i + 1);
+      result[id] = value;
+    }
+    return result;
+  }
+
+  /**
+   * Get servo speeds (signed, in servo steps/second).
    */
   async querySpeed() {
     const packet = this.buildCommandPacket(BackboneCommands.QUERY_SPEED);
     const res = await this.sendRaw(packet, BackboneCommands.QUERY_SPEED);
-    return this.decodeServoInt16Map(res.payload);
+    return this.decodeServoSignedInt16Map(res.payload);
   }
 
   /**

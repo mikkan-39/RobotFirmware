@@ -77,7 +77,7 @@ export const JOINT_LIMITS: [number, number][] = [
 ];
 
 const NUM_JOINTS = 14;
-const OBS_SIZE = 40;
+const OBS_SIZE = 54;
 
 /**
  * Sign flip to convert URDF convention → physical servo convention.
@@ -134,6 +134,15 @@ const DEFAULT_JOINT_POS: number[] = [
 // Servo steps per radian: (4095 - 0) / (2 * PI) ≈ 651.9
 const STEPS_PER_RAD = 4095 / (2 * Math.PI);
 
+// Low-pass filter alpha for IMU data (0-1)
+// 0 = no filtering (use previous), 1 = no filtering (use raw), ~0.2 = heavy smoothing
+const IMU_FILTER_ALPHA = 0.3;  // Set to 1.0 to disable filtering
+
+// Action smoothing alpha (0-1)
+// Blends new actions with previous to prevent rapid changes
+// 1.0 = no smoothing (raw actions), 0.3 = moderate smoothing
+const ACTION_SMOOTH_ALPHA = 1.0;  // Set to 1.0 to disable
+
 export type IMUData = {
   quat: number[];      // [qw, qx, qy, qz] or [qx, qy, qz, qw] - check your IMU
   gravVector: number[]; // May be unreliable - we compute our own
@@ -165,6 +174,13 @@ export function computeProjectedGravity(quat: number[]): [number, number, number
 export class PolicyRunner {
   private lastAction: number[] = new Array(NUM_JOINTS).fill(0);
   private modelLoaded = false;
+  
+  // Filtered IMU values (for low-pass filtering)
+  private filteredAcc: number[] | null = null;
+  private filteredGyro: number[] | null = null;
+  
+  // Smoothed actions (for action smoothing)
+  private smoothedAction: number[] | null = null;
 
   constructor(modelPath: string) {
     addon.loadModel(modelPath);
@@ -242,12 +258,12 @@ export class PolicyRunner {
   buildObservation(
     imu: IMUData,
     servoPositions: Record<number, number>,
-    // servoSpeeds: Record<number, number>,  // commented out - policy trained without velocity observations
+    servoSpeeds: Record<number, number>,  // commented out - policy trained without velocity observations
     cmdVel: [number, number, number], // [vx, vy, wz]
   ): number[] {
     const jointPos = this.extractJointPositions(servoPositions);
-    // const jointVel = this.extractJointVelocities(servoSpeeds);
-    const jointVel = new Array(NUM_JOINTS).fill(0);  // policy trained without velocity observations
+    const jointVel = this.extractJointVelocities(servoSpeeds);
+    // const jointVel = new Array(NUM_JOINTS).fill(0);  // policy trained without velocity observations
 
     // Joint positions relative to default
     // DEFAULT_JOINT_POS represents where servo 2048 is in URDF space
@@ -262,13 +278,34 @@ export class PolicyRunner {
     const G_TO_MS2 = 9.81;
     const DEG_TO_RAD = Math.PI / 180;
 
-    // IMU is rotated 180° around Z relative to sim body frame
-    // So negate X and Y components of acc and gyro
+    // Convert raw IMU to policy units
+    const rawAcc = [
+      imu.acc[0]! * G_TO_MS2,
+      imu.acc[1]! * G_TO_MS2,
+      imu.acc[2]! * G_TO_MS2,
+    ];
+    const rawGyro = [
+      imu.gyro[0]! * DEG_TO_RAD,
+      imu.gyro[1]! * DEG_TO_RAD,
+      imu.gyro[2]! * DEG_TO_RAD,
+    ];
+
+    // Apply low-pass filter (set IMU_FILTER_ALPHA=1.0 to disable)
+    if (this.filteredAcc === null) {
+      this.filteredAcc = rawAcc;
+      this.filteredGyro = rawGyro;
+    } else {
+      for (let i = 0; i < 3; i++) {
+        this.filteredAcc[i] = IMU_FILTER_ALPHA * rawAcc[i]! + (1 - IMU_FILTER_ALPHA) * this.filteredAcc[i]!;
+        this.filteredGyro![i] = IMU_FILTER_ALPHA * rawGyro[i]! + (1 - IMU_FILTER_ALPHA) * this.filteredGyro![i]!;
+      }
+    }
+
     const obs: number[] = [
-      // Base linear acceleration (3) - converted from g to m/s², with 180° Z rotation
-      imu.acc[0]! * G_TO_MS2, imu.acc[1]! * G_TO_MS2, imu.acc[2]! * G_TO_MS2,
-      // Base angular velocity (3) - converted from deg/s to rad/s, with 180° Z rotation
-      imu.gyro[0]! * DEG_TO_RAD, imu.gyro[1]! * DEG_TO_RAD, imu.gyro[2]! * DEG_TO_RAD,
+      // Base linear acceleration (3) - filtered
+      this.filteredAcc[0]!, this.filteredAcc[1]!, this.filteredAcc[2]!,
+      // Base angular velocity (3) - filtered
+      this.filteredGyro![0]!, this.filteredGyro![1]!, this.filteredGyro![2]!,
       // Projected gravity (3) - computed from quaternion
       projectedGravity[0], projectedGravity[1], projectedGravity[2],
       // Velocity commands (3)
@@ -276,7 +313,7 @@ export class PolicyRunner {
       // Joint positions relative to default (14)
       ...jointPosRel,
       // Joint velocities (14)
-      // ...jointVel,
+      ...jointVel,
       // Previous actions (14)
       ...this.lastAction,
     ];
@@ -286,10 +323,12 @@ export class PolicyRunner {
     }
 
     // console.log('obs:', JSON.stringify(obs, null, 2))
-    console.log('acc obs:', JSON.stringify(obs.slice(0, 3), null, 2))
-    console.log('gyro obs:', JSON.stringify(obs.slice(3, 6), null, 2))
-    console.log('grav obs:', JSON.stringify(obs.slice(6, 9), null, 2))
-
+    // console.log('acc obs:', JSON.stringify(obs.slice(0, 3), null, 2))
+    // console.log('gyro obs:', JSON.stringify(obs.slice(3, 6), null, 2))
+    // console.log('grav obs:', JSON.stringify(obs.slice(6, 9), null, 2))
+    console.log('joint vel obs:', JSON.stringify(obs.slice(26, 40), null, 2))
+    console.log('joint pos obs:', JSON.stringify(obs.slice(12, 26), null, 2))
+    // console.log('cmd vel obs:', JSON.stringify(obs.slice(9, 12), null, 2))
     return obs;
   }
 
@@ -306,10 +345,19 @@ export class PolicyRunner {
     // Clip to [-1, 1]
     const actions = rawActions.map(a => Math.max(-1, Math.min(1, a)));
 
-    // Store for next observation
+    // Store raw actions for next observation (policy expects to see what it output)
     this.lastAction = actions.slice();
 
-    return actions;
+    // Apply action smoothing (set ACTION_SMOOTH_ALPHA=1.0 to disable)
+    if (this.smoothedAction === null) {
+      this.smoothedAction = actions.slice();
+    } else {
+      for (let i = 0; i < actions.length; i++) {
+        this.smoothedAction[i] = ACTION_SMOOTH_ALPHA * actions[i]! + (1 - ACTION_SMOOTH_ALPHA) * this.smoothedAction[i]!;
+      }
+    }
+
+    return this.smoothedAction.slice();
   }
 
   /**
@@ -367,5 +415,8 @@ export class PolicyRunner {
    */
   reset(): void {
     this.lastAction = new Array(NUM_JOINTS).fill(0);
+    this.filteredAcc = null;
+    this.filteredGyro = null;
+    this.smoothedAction = null;
   }
 }

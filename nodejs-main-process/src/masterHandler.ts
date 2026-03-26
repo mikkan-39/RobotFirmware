@@ -16,6 +16,37 @@ const port = 3901
 app.use(bodyParser.json())
 // const wss = new WebSocket.Server({ port: 3902 })
 
+/**
+ * Test angle generator - produces a sine wave for testing.
+ */
+class TestAngleGenerator {
+  amplitude = 0.0;   // radians
+  frequency = 0.5;   // Hz
+  offset = 0.0;      // radians
+  private startTime: number | null = null;
+
+  /** Get current angle value */
+  get(): number {
+    if (this.startTime === null) {
+      this.startTime = Date.now();
+    }
+    const t = (Date.now() - this.startTime) / 1000; // seconds
+    return this.offset + this.amplitude * Math.sin(2 * Math.PI * this.frequency * t);
+  }
+
+  /** Reset the phase (restart from t=0) */
+  reset(): void {
+    this.startTime = null;
+  }
+
+  /** Configure the generator */
+  configure(amplitude: number, frequency: number, offset: number): void {
+    this.amplitude = amplitude;
+    this.frequency = frequency;
+    this.offset = offset;
+  }
+}
+
 export const MasterHandler = (
   BackbonePort: SerialPort,
   HeadPort: SerialPort,
@@ -30,6 +61,12 @@ export const MasterHandler = (
   let policyRunner: PolicyRunner | null = null
   let policyEnabled = false
   let cmdVel: [number, number, number] = [0.0, 0.0, 0.0] // [vx, vy, wz]
+  
+  // Test angle generator for debugging (configure here)
+  const testAngleGen = new TestAngleGenerator();
+  testAngleGen.amplitude = 0.5;   // radians
+  testAngleGen.frequency = 0.5;   // Hz
+  testAngleGen.offset = 0.0;      // radians
 
   const setup = async () => {
     console.log(await peripheryController.ping())
@@ -143,11 +180,11 @@ export const MasterHandler = (
     try {
       // Read sensors in parallel
       // Note: servoSpeeds commented out - policy trained without velocity observations
-      const [imuData, servoPositions /*, servoSpeeds */] = await Promise.all([
+      const [imuData, servoPositions] = await Promise.all([
         peripheryController.imu(),
         backboneController.queryPositions(),
-        // backboneController.querySpeed(),
       ])
+      const servoSpeeds = await backboneController.querySpeed()
 
       // Check for excessive tilt (emergency stop)
       if (policyRunner.checkExcessiveTilt(imuData.quat)) {
@@ -155,6 +192,7 @@ export const MasterHandler = (
         console.warn('[main3] Excessive tilt detected! Disabling policy.')
         console.log('quat:', imuData.quat, 'projectedGravity:', projGrav)
         policyEnabled = false
+        await backboneController.exit()
         return
       }
 
@@ -166,14 +204,18 @@ export const MasterHandler = (
       // });
 
       // DEBUG: Print servo positions
-      console.log('servoPositions:', servoPositions);
+      // console.log('servoPositions:', servoPositions);
+
+      // Get test angle (for debugging/testing)
+      const testAngle = testAngleGen.get();
 
       // Build observation vector
       const obs = policyRunner.buildObservation(
         imuData,
         servoPositions,
-        // servoSpeeds,  // commented out - policy trained without velocity observations
+        servoSpeeds,
         cmdVel,
+        // testAngle,
       )
       
       // DEBUG: Print observation joint positions (indices 12-25)
@@ -186,11 +228,11 @@ export const MasterHandler = (
       const servoTargets = policyRunner.actionsToServoPositions(actions)
 
       // DEBUG: Print actions and servo targets
-      console.log('actions:', actions.map(a => a.toFixed(3)));
+      // console.log('actions:', actions.map(a => a.toFixed(3)));
       // console.log('servoTargets:', servoTargets);
 
       // Send to servos
-      // await backboneController.setPos(servoTargets)
+      await backboneController.setPos(servoTargets)
     } catch (err) {
       console.error('[main3] Error in policy loop:', err)
     }
@@ -353,7 +395,7 @@ export const MasterHandler = (
     }
 
     console.log(`[INFO] Starting ${mainName} loop`);
-    currentLoop = createRunLoop(20, mainMap[mainName]);
+    currentLoop = createRunLoop(40, mainMap[mainName]);
     res.send(`Switched to ${mainName}`);
   });
 
@@ -392,7 +434,6 @@ export const MasterHandler = (
       res.status(400).send({ success: false, error: 'Policy not initialized. Call /policy/init first.' })
       return
     }
-    // await backboneController.setSpeed(makeGlobalServoValues(0))
 
     // Stop any existing loop
     if (currentLoop) {
@@ -405,6 +446,7 @@ export const MasterHandler = (
     cmdVel = [0.0, 0.0, 0.0] // Start stationary
 
     // Start main3 at 50Hz (20ms period)
+    await backboneController.setSpeed(makeGlobalServoValues(1000))
     currentLoop = createRunLoop(20, main3, { shouldLog: true })
     console.log('[policy/enable] Policy control enabled at 50Hz')
     res.send({ success: true, message: 'Policy enabled' })
