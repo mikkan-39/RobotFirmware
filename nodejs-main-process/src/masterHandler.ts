@@ -5,6 +5,7 @@ import { PeripheryRequestHandler } from './handlers/peripheryRequestHandler'
 import { connectPythonSock, pythonRequest, pythonSockSetTimeouts } from './handlers/pythonRequestHandler'
 import { ServoIDs } from './types'
 import { PolicyRunner, POLICY_TO_SERVO, computeProjectedGravity } from './policyRunner'
+import { PolicyRunnerSimple } from './policyRunnerSimple'
 
 import express from 'express'
 import bodyParser from 'body-parser'
@@ -173,6 +174,25 @@ export const MasterHandler = (
    * Reads IMU + servo positions, runs inference, sends servo commands.
    */
   async function main3() {
+        if (!policyRunner || !policyEnabled) {
+      return
+    }
+
+    // try {
+    //   const servoPositions = await backboneController.queryPositions()
+
+    //   const runner = policyRunner
+    //   const testAngle = testAngleGen.get();
+    //   // const testAngle = cmdVel[0]!;
+    //   const obs = runner.buildObservation(testAngle, servoPositions[1]!);
+    //   const action = runner.step(obs);
+    //   const servoTarget = runner.actionToServoPosition(action);
+    //   await backboneController.setSpeed({ 1: 0, })
+    //   await backboneController.setPos({ [runner.getServoId()]: servoTarget });
+
+    // } catch (err) {
+    //   console.error('[main3] Error in policy loop:', err)
+    // }
     if (!policyRunner || !policyEnabled) {
       return
     }
@@ -184,7 +204,7 @@ export const MasterHandler = (
         peripheryController.imu(),
         backboneController.queryPositions(),
       ])
-      const servoSpeeds = await backboneController.querySpeed()
+      // const servoSpeeds = await backboneController.querySpeed()
 
       // Check for excessive tilt (emergency stop)
       if (policyRunner.checkExcessiveTilt(imuData.quat)) {
@@ -213,9 +233,7 @@ export const MasterHandler = (
       const obs = policyRunner.buildObservation(
         imuData,
         servoPositions,
-        servoSpeeds,
         cmdVel,
-        // testAngle,
       )
       
       // DEBUG: Print observation joint positions (indices 12-25)
@@ -525,84 +543,84 @@ export const MasterHandler = (
     { index: 13, testValue: +0.2, name: 'FOOT_TILT_R', expected: 'Right foot tilts INWARD ~11°' },
   ]
 
-  app.get('/policy/test/:jointIndex', async (req, res) => {
-    const jointIndex = parseInt(req.params.jointIndex)
+  // app.get('/policy/test/:jointIndex', async (req, res) => {
+  //   const jointIndex = parseInt(req.params.jointIndex)
     
-    if (isNaN(jointIndex) || jointIndex < 0 || jointIndex >= 14) {
-      res.status(400).send({ error: 'Joint index must be 0-13' })
-      return
-    }
+  //   if (isNaN(jointIndex) || jointIndex < 0 || jointIndex >= 14) {
+  //     res.status(400).send({ error: 'Joint index must be 0-13' })
+  //     return
+  //   }
 
-    // Stop any running loop
-    if (currentLoop) {
-      await currentLoop.stop()
-      currentLoop = null
-    }
-    policyEnabled = false
+  //   // Stop any running loop
+  //   if (currentLoop) {
+  //     await currentLoop.stop()
+  //     currentLoop = null
+  //   }
+  //   policyEnabled = false
 
-    // Create test actions: all zeros except the test joint
-    const testActions = new Array(14).fill(0)
-    const test = JOINT_TESTS[jointIndex]!
-    testActions[jointIndex] = test.testValue
+  //   // Create test actions: all zeros except the test joint
+  //   const testActions = new Array(14).fill(0)
+  //   const test = JOINT_TESTS[jointIndex]!
+  //   testActions[jointIndex] = test.testValue
 
-    // Use PolicyRunner to convert to servo positions (applies POLICY_SIGN_FLIP)
-    if (!policyRunner) {
-      policyRunner = new PolicyRunner('policy.pt')
-    }
-    const servoTargets = policyRunner.actionsToServoPositions(testActions)
+  //   // Use PolicyRunner to convert to servo positions (applies POLICY_SIGN_FLIP)
+  //   if (!policyRunner) {
+  //     policyRunner = new PolicyRunner('policy.pt')
+  //   }
+  //   const servoTargets = policyRunner.actionsToServoPositions(testActions)
 
-    // Set slow speed for safety
-    const speedTargets: Record<number, number> = {}
-    for (const servoId of Object.keys(servoTargets)) {
-      speedTargets[Number(servoId)] = 500
-    }
-    await backboneController.setSpeed(speedTargets)
-    await backboneController.setPos(servoTargets)
+  //   // Set slow speed for safety
+  //   const speedTargets: Record<number, number> = {}
+  //   for (const servoId of Object.keys(servoTargets)) {
+  //     speedTargets[Number(servoId)] = 500
+  //   }
+  //   await backboneController.setSpeed(speedTargets)
+  //   await backboneController.setPos(servoTargets)
 
-    console.log(`[policy/test] Joint ${jointIndex} (${test.name}) set to ${test.testValue} rad`)
-    console.log(`[policy/test] Expected: ${test.expected}`)
-    console.log(`[policy/test] Servo targets:`, servoTargets)
+  //   console.log(`[policy/test] Joint ${jointIndex} (${test.name}) set to ${test.testValue} rad`)
+  //   console.log(`[policy/test] Expected: ${test.expected}`)
+  //   console.log(`[policy/test] Servo targets:`, servoTargets)
 
-    res.send({
-      jointIndex,
-      jointName: test.name,
-      testValue: test.testValue,
-      testValueDeg: Math.round(test.testValue * 180 / Math.PI),
-      expected: test.expected,
-      servoTargets,
-    })
-  })
+  //   res.send({
+  //     jointIndex,
+  //     jointName: test.name,
+  //     testValue: test.testValue,
+  //     testValueDeg: Math.round(test.testValue * 180 / Math.PI),
+  //     expected: test.expected,
+  //     servoTargets,
+  //   })
+  // })
 
-  /**
-   * Reset all joints to neutral (0 rad).
-   * GET /policy/test/reset
-   */
-  app.get('/policy/test-reset', async (_, res) => {
-    // Stop any running loop
-    if (currentLoop) {
-      await currentLoop.stop()
-      currentLoop = null
-    }
-    policyEnabled = false
+  // /**
+  //  * Reset all joints to neutral (0 rad).
+  //  * GET /policy/test/reset
+  //  */
+  // app.get('/policy/test-reset', async (_, res) => {
+  //   // Stop any running loop
+  //   if (currentLoop) {
+  //     await currentLoop.stop()
+  //     currentLoop = null
+  //   }
+  //   policyEnabled = false
 
-    // All zeros
-    const testActions = new Array(14).fill(0)
+  //   // All zeros
+  //   const testActions = new Array(14).fill(0)
     
-    if (!policyRunner) {
-      policyRunner = new PolicyRunner('policy.pt')
-    }
-    const servoTargets = policyRunner.actionsToServoPositions(testActions)
+  //   if (!policyRunner) {
+  //     policyRunner = new PolicyRunner('policy.pt')
+  //   }
+  //   const servoTargets = policyRunner.actionsToServoPositions(testActions)
 
-    const speedTargets: Record<number, number> = {}
-    for (const servoId of Object.keys(servoTargets)) {
-      speedTargets[Number(servoId)] = 500
-    }
-    await backboneController.setSpeed(speedTargets)
-    await backboneController.setPos(servoTargets)
+  //   const speedTargets: Record<number, number> = {}
+  //   for (const servoId of Object.keys(servoTargets)) {
+  //     speedTargets[Number(servoId)] = 500
+  //   }
+  //   await backboneController.setSpeed(speedTargets)
+  //   await backboneController.setPos(servoTargets)
 
-    console.log('[policy/test-reset] All joints set to 0 (neutral)')
-    res.send({ message: 'All joints reset to neutral', servoTargets })
-  })
+  //   console.log('[policy/test-reset] All joints set to 0 (neutral)')
+  //   res.send({ message: 'All joints reset to neutral', servoTargets })
+  // })
 
   app.listen(port, () => {
     console.log(`Robot server running on port ${port}`)

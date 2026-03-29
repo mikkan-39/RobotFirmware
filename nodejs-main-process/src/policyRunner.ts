@@ -77,7 +77,9 @@ export const JOINT_LIMITS: [number, number][] = [
 ];
 
 const NUM_JOINTS = 14;
-const OBS_SIZE = 54;
+const ACTION_HISTORY_SIZE = 4;
+// OBS: 3 acc + 3 gyro + 3 gravity + 3 cmdVel + 14 jointPos + 14 prevJointPos + 14*4 actions = 96
+const OBS_SIZE = 96;
 
 /**
  * Sign flip to convert URDF convention → physical servo convention.
@@ -136,7 +138,7 @@ const STEPS_PER_RAD = 4095 / (2 * Math.PI);
 
 // Low-pass filter alpha for IMU data (0-1)
 // 0 = no filtering (use previous), 1 = no filtering (use raw), ~0.2 = heavy smoothing
-const IMU_FILTER_ALPHA = 0.3;  // Set to 1.0 to disable filtering
+const IMU_FILTER_ALPHA = 0.7;  // Set to 1.0 to disable filtering
 
 // Action smoothing alpha (0-1)
 // Blends new actions with previous to prevent rapid changes
@@ -172,8 +174,16 @@ export function computeProjectedGravity(quat: number[]): [number, number, number
 }
 
 export class PolicyRunner {
-  private lastAction: number[] = new Array(NUM_JOINTS).fill(0);
+  // Action history: [0]=most recent, [1]=second most recent, etc.
+  // Each entry is an array of NUM_JOINTS actions
+  private actionHistory: number[][] = Array.from(
+    { length: ACTION_HISTORY_SIZE },
+    () => new Array(NUM_JOINTS).fill(0)
+  );
   private modelLoaded = false;
+  
+  // Previous joint positions (from last tick)
+  private prevJointPos: number[] | null = null;
   
   // Filtered IMU values (for low-pass filtering)
   private filteredAcc: number[] | null = null;
@@ -253,21 +263,26 @@ export class PolicyRunner {
   }
 
   /**
-   * Build the 54-element observation vector.
+   * Build the observation vector.
    */
   buildObservation(
     imu: IMUData,
     servoPositions: Record<number, number>,
-    servoSpeeds: Record<number, number>,  // commented out - policy trained without velocity observations
     cmdVel: [number, number, number], // [vx, vy, wz]
   ): number[] {
     const jointPos = this.extractJointPositions(servoPositions);
-    const jointVel = this.extractJointVelocities(servoSpeeds);
-    // const jointVel = new Array(NUM_JOINTS).fill(0);  // policy trained without velocity observations
 
     // Joint positions relative to default
     // DEFAULT_JOINT_POS represents where servo 2048 is in URDF space
     const jointPosRel = jointPos.map((pos, i) => pos - DEFAULT_JOINT_POS[i]!);
+    
+    // Previous joint positions (use current if first tick)
+    const prevJointPosRel = this.prevJointPos 
+      ? this.prevJointPos.map((pos, i) => pos - DEFAULT_JOINT_POS[i]!)
+      : jointPosRel;
+    
+    // Store current for next tick
+    this.prevJointPos = jointPos.slice();
 
     // Compute projected gravity from quaternion (more reliable than IMU's gravVector)
     const projectedGravity = computeProjectedGravity(imu.quat);
@@ -312,10 +327,10 @@ export class PolicyRunner {
       cmdVel[0], cmdVel[1], cmdVel[2],
       // Joint positions relative to default (14)
       ...jointPosRel,
-      // Joint velocities (14)
-      ...jointVel,
-      // Previous actions (14)
-      ...this.lastAction,
+      // Previous joint positions relative to default (14)
+      ...prevJointPosRel,
+      // Previous actions (14 * 4 = 56): last, second-to-last, third-to-last, fourth-to-last
+      ...this.actionHistory.flat(),
     ];
 
     if (obs.length !== OBS_SIZE) {
@@ -326,7 +341,7 @@ export class PolicyRunner {
     // console.log('acc obs:', JSON.stringify(obs.slice(0, 3), null, 2))
     // console.log('gyro obs:', JSON.stringify(obs.slice(3, 6), null, 2))
     // console.log('grav obs:', JSON.stringify(obs.slice(6, 9), null, 2))
-    console.log('joint vel obs:', JSON.stringify(obs.slice(26, 40), null, 2))
+    // console.log('prev joint pos obs:', JSON.stringify(obs.slice(26, 40), null, 2))
     console.log('joint pos obs:', JSON.stringify(obs.slice(12, 26), null, 2))
     // console.log('cmd vel obs:', JSON.stringify(obs.slice(9, 12), null, 2))
     return obs;
@@ -345,8 +360,11 @@ export class PolicyRunner {
     // Clip to [-1, 1]
     const actions = rawActions.map(a => Math.max(-1, Math.min(1, a)));
 
-    // Store raw actions for next observation (policy expects to see what it output)
-    this.lastAction = actions.slice();
+    // Shift action history: [0,1,2,3] -> [new,0,1,2]
+    for (let i = ACTION_HISTORY_SIZE - 1; i > 0; i--) {
+      this.actionHistory[i] = this.actionHistory[i - 1]!;
+    }
+    this.actionHistory[0] = actions.slice();
 
     // Apply action smoothing (set ACTION_SMOOTH_ALPHA=1.0 to disable)
     if (this.smoothedAction === null) {
@@ -414,7 +432,11 @@ export class PolicyRunner {
    * Reset internal state (call when starting/stopping policy control).
    */
   reset(): void {
-    this.lastAction = new Array(NUM_JOINTS).fill(0);
+    this.actionHistory = Array.from(
+      { length: ACTION_HISTORY_SIZE },
+      () => new Array(NUM_JOINTS).fill(0)
+    );
+    this.prevJointPos = null;
     this.filteredAcc = null;
     this.filteredGyro = null;
     this.smoothedAction = null;

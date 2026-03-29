@@ -129,7 +129,6 @@ export function createRunLoop(
 
   let shouldRun = true;
   let paused = false;
-  let lastStart = performance.now();
   const durations: number[] = [];
   let cycleCount = 0;
   let errorCount = 0;
@@ -140,14 +139,16 @@ export function createRunLoop(
   });
 
   async function loop() {
+    let nextTargetTime = performance.now();
+    
     while (shouldRun) {
       if (paused) {
         await new Promise((resolve) => setTimeout(resolve, targetPeriodMs));
+        nextTargetTime = performance.now(); // Reset after unpause
         continue;
       }
 
-      lastStart = performance.now();
-      const cycleStart = lastStart;
+      const cycleStart = performance.now();
 
       try {
         await main();
@@ -171,13 +172,19 @@ export function createRunLoop(
         durations.shift();
       }
 
-      const elapsedTotal = performance.now() - cycleStart;
-      if (elapsedTotal > targetPeriodMs) {
-        console.warn(`[WARNING] Overrun detected: cycle took ${elapsedTotal.toFixed(2)}ms`);
-      }
-
-      const remaining = targetPeriodMs - elapsedTotal;
-      if (remaining > 0) {
+      // Use absolute target time to prevent drift
+      nextTargetTime += targetPeriodMs;
+      const now = performance.now();
+      const remaining = nextTargetTime - now;
+      
+      if (remaining < -targetPeriodMs) {
+        // We're way behind, reset to catch up
+        console.warn(`[WARNING] Loop fell behind by ${(-remaining).toFixed(2)}ms, resetting`);
+        nextTargetTime = now + targetPeriodMs;
+      } else if (remaining < 0) {
+        // Slight overrun, skip sleep but don't reset
+        console.warn(`[WARNING] Overrun: cycle took ${duration.toFixed(2)}ms`);
+      } else {
         await new Promise((res) => setTimeout(res, remaining));
       }
 
