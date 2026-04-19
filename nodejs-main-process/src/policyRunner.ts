@@ -78,8 +78,8 @@ export const JOINT_LIMITS: [number, number][] = [
 
 const NUM_JOINTS = 14;
 const ACTION_HISTORY_SIZE = 4;
-// OBS: 3 acc + 3 gyro + 3 gravity + 3 cmdVel + 14 jointPos + 14 prevJointPos + 14*4 actions = 96
-const OBS_SIZE = 96;
+// OBS: 3 acc + 3 gyro + 3 gravity + 3 cmdVel + 2 gait phase + 14 jointPos + 14 prevJointPos + 14*4 actions = 96
+const OBS_SIZE = 98;
 
 /**
  * Sign flip to convert URDF convention → physical servo convention.
@@ -145,6 +145,9 @@ const IMU_FILTER_ALPHA = 0.7;  // Set to 1.0 to disable filtering
 // 1.0 = no smoothing (raw actions), 0.3 = moderate smoothing
 const ACTION_SMOOTH_ALPHA = 1.0;  // Set to 1.0 to disable
 
+// Gait phase frequency (Hz)
+const GAIT_PHASE_FREQ = 1.0;
+
 export type IMUData = {
   quat: number[];      // [qw, qx, qy, qz] or [qx, qy, qz, qw] - check your IMU
   gravVector: number[]; // May be unreliable - we compute our own
@@ -184,6 +187,9 @@ export class PolicyRunner {
   
   // Previous joint positions (from last tick)
   private prevJointPos: number[] | null = null;
+  
+  // Gait phase start time (for sine/cosine clock)
+  private gaitPhaseStartTime: number | null = null;
   
   // Filtered IMU values (for low-pass filtering)
   private filteredAcc: number[] | null = null;
@@ -316,6 +322,15 @@ export class PolicyRunner {
       }
     }
 
+    // Gait phase (sine/cosine clock)
+    if (this.gaitPhaseStartTime === null) {
+      this.gaitPhaseStartTime = Date.now();
+    }
+    const t = (Date.now() - this.gaitPhaseStartTime) / 1000;  // seconds
+    const phase = 2 * Math.PI * GAIT_PHASE_FREQ * t;
+    const gaitPhaseSin = Math.sin(phase);
+    const gaitPhaseCos = Math.cos(phase);
+
     const obs: number[] = [
       // Base linear acceleration (3) - filtered
       this.filteredAcc[0]!, this.filteredAcc[1]!, this.filteredAcc[2]!,
@@ -325,6 +340,8 @@ export class PolicyRunner {
       projectedGravity[0], projectedGravity[1], projectedGravity[2],
       // Velocity commands (3)
       cmdVel[0], cmdVel[1], cmdVel[2],
+      // Gait phase (2) - sine and cosine
+      gaitPhaseSin, gaitPhaseCos,
       // Joint positions relative to default (14)
       ...jointPosRel,
       // Previous joint positions relative to default (14)
@@ -437,6 +454,7 @@ export class PolicyRunner {
       () => new Array(NUM_JOINTS).fill(0)
     );
     this.prevJointPos = null;
+    this.gaitPhaseStartTime = null;
     this.filteredAcc = null;
     this.filteredGyro = null;
     this.smoothedAction = null;

@@ -111,21 +111,21 @@ export const MasterHandler = (
   let eyesR = 90
   let eyesS = 3
 
-  setInterval(() => {
-    const magicNumber = Math.random()
-    if (magicNumber > 0.7) {
-      eyesR = 10
-      eyesS = 20
-      setTimeout(() => {
-        eyesR = 90
-      }, 150)
-      setTimeout(() => {
-        eyesS = 3
-      }, 300)
-    } else if (magicNumber > 0.3) {
-      eyesR = Math.round(90 - Math.random() * 20)
-    }
-  }, 1000)
+  // setInterval(() => {
+  //   const magicNumber = Math.random()
+  //   if (magicNumber > 0.7) {
+  //     eyesR = 10
+  //     eyesS = 20
+  //     setTimeout(() => {
+  //       eyesR = 90
+  //     }, 150)
+  //     setTimeout(() => {
+  //       eyesS = 3
+  //     }, 300)
+  //   } else if (magicNumber > 0.3) {
+  //     eyesR = Math.round(90 - Math.random() * 20)
+  //   }
+  // }, 1000)
 
   // let shouldLookAtHoomans = true
   // setInterval(() => {
