@@ -622,6 +622,86 @@ export const MasterHandler = (
   //   res.send({ message: 'All joints reset to neutral', servoTargets })
   // })
 
+  /**
+   * Step response test for servo characterization.
+   * GET /test_step
+   * 
+   * Records position tracking at 50Hz while applying a step input.
+   */
+  app.get('/testStep', async (_, res) => {
+    const SERVO_ID = 7;  // ELBOW_MAIN_R
+    const STEPS_PER_RAD = 4095 / (2 * Math.PI);
+    const START_POS = 2048;
+    const TARGET_POS = 1024;
+    const RECORD_HZ = 50;
+    const RECORD_INTERVAL_MS = 1000 / RECORD_HZ;
+
+    // Stop any running loop
+    if (currentLoop) {
+      await currentLoop.stop();
+      currentLoop = null;
+    }
+    policyEnabled = false;
+
+    console.log('[test_step] Starting step response test...');
+
+    // Set speed to 0 (no limit) and move to start position
+    await backboneController.setSpeed({ [SERVO_ID]: 0 });
+    await backboneController.setAccelSymmetric({ [SERVO_ID]: 0 });
+    await backboneController.setPos({ [SERVO_ID]: START_POS });
+
+    // Wait for servo to reach start position
+    await sleep(500);
+
+    // Prepare CSV data
+    const csvRows: string[] = ['timestamp_ms,targetRad,actualRad'];
+    const startTime = Date.now();
+    let targetPos = START_POS;
+
+    // Helper to convert servo pos to radians
+    const posToRad = (pos: number) => (pos - 2048) / STEPS_PER_RAD;
+
+    // Recording function
+    const recordSample = async () => {
+      const positions = await backboneController.queryPositions();
+      const actualPos = positions[SERVO_ID] ?? 2048;
+      const timestamp = Date.now() - startTime;
+      const targetRad = posToRad(targetPos);
+      const actualRad = posToRad(actualPos);
+      csvRows.push(`${timestamp},${targetRad.toFixed(6)},${actualRad.toFixed(6)}`);
+    };
+
+    // Phase 1: Record at start position for 0.5s
+    console.log('[test_step] Phase 1: Recording at start position...');
+    for (let i = 0; i < 25; i++) {  // 25 samples = 0.5s at 50Hz
+      await recordSample();
+      await sleep(RECORD_INTERVAL_MS);
+    }
+
+    // Phase 2: Apply step and record for 0.5s
+    console.log('[test_step] Phase 2: Applying step to target...');
+    targetPos = TARGET_POS;
+    await backboneController.setPos({ [SERVO_ID]: TARGET_POS });
+    for (let i = 0; i < 25; i++) {
+      await recordSample();
+      await sleep(RECORD_INTERVAL_MS);
+    }
+
+    // Save CSV
+    const filename = `step_response_${Date.now()}.csv`;
+    const fs = await import('fs');
+    fs.writeFileSync(filename, csvRows.join('\n'));
+
+    console.log(`[test_step] Done. Saved ${csvRows.length} samples to ${filename}`);
+    res.send({
+      success: true,
+      filename,
+      samples: csvRows.length,
+      startPosRad: posToRad(START_POS),
+      targetPosRad: posToRad(TARGET_POS),
+    });
+  });
+
   app.listen(port, () => {
     console.log(`Robot server running on port ${port}`)
   })
