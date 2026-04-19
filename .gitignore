@@ -4,6 +4,8 @@ nodejs-main-process/node_modules
 nodejs-main-process/hailort*
 nodejs-main-process/nohup*
 nodejs-main-process/build
+nodejs-main-process/libtorch/
+nodejs-main-process/libtorch-cxx11-abi-shared-with-deps-*.zip
 
 python-ml-control/venv
 python-ml-control/hailort*
