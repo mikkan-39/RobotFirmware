@@ -148,6 +148,9 @@ const ACTION_SMOOTH_ALPHA = 1.0;  // Set to 1.0 to disable
 // Gait phase frequency (Hz)
 const GAIT_PHASE_FREQ = 1.0;
 
+// Debug logging flag - set to true to enable detailed logging to file
+export const POLICY_DEBUG_LOGGING = true;
+
 export type IMUData = {
   quat: number[];      // [qw, qx, qy, qz] or [qx, qy, qz, qw] - check your IMU
   gravVector: number[]; // May be unreliable - we compute our own
@@ -197,6 +200,9 @@ export class PolicyRunner {
   
   // Smoothed actions (for action smoothing)
   private smoothedAction: number[] | null = null;
+  
+  // Raw policy output (before clipping/smoothing) for debugging
+  private lastRawActions: number[] = new Array(NUM_JOINTS).fill(0);
 
   constructor(modelPath: string) {
     addon.loadModel(modelPath);
@@ -359,7 +365,7 @@ export class PolicyRunner {
     // console.log('gyro obs:', JSON.stringify(obs.slice(3, 6), null, 2))
     // console.log('grav obs:', JSON.stringify(obs.slice(6, 9), null, 2))
     // console.log('prev joint pos obs:', JSON.stringify(obs.slice(26, 40), null, 2))
-    console.log('joint pos obs:', JSON.stringify(obs.slice(12, 26), null, 2))
+    // console.log('joint pos obs:', JSON.stringify(obs.slice(12, 26), null, 2))
     // console.log('cmd vel obs:', JSON.stringify(obs.slice(9, 12), null, 2))
     return obs;
   }
@@ -373,15 +379,19 @@ export class PolicyRunner {
     }
 
     const rawActions = addon.runModel(obs);
-
-    // Clip to [-1, 1]
-    const actions = rawActions.map(a => Math.max(-1, Math.min(1, a)));
+    
+    // Store raw actions for debugging
+    this.lastRawActions = rawActions.slice();
 
     // Shift action history: [0,1,2,3] -> [new,0,1,2]
+    // NOTE: Raw actions go into history (before clipping), matching sim behavior
     for (let i = ACTION_HISTORY_SIZE - 1; i > 0; i--) {
       this.actionHistory[i] = this.actionHistory[i - 1]!;
     }
-    this.actionHistory[0] = actions.slice();
+    this.actionHistory[0] = rawActions.slice();
+
+    // Clip to [-1, 1] for servo output
+    const actions = rawActions.map(a => Math.max(-1, Math.min(1, a)));
 
     // Apply action smoothing (set ACTION_SMOOTH_ALPHA=1.0 to disable)
     if (this.smoothedAction === null) {
@@ -393,6 +403,13 @@ export class PolicyRunner {
     }
 
     return this.smoothedAction.slice();
+  }
+
+  /**
+   * Get the raw policy output from the last step (before clipping/smoothing).
+   */
+  getLastRawActions(): number[] {
+    return this.lastRawActions.slice();
   }
 
   /**
@@ -458,5 +475,6 @@ export class PolicyRunner {
     this.filteredAcc = null;
     this.filteredGyro = null;
     this.smoothedAction = null;
+    this.lastRawActions = new Array(NUM_JOINTS).fill(0);
   }
 }

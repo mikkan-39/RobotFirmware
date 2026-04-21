@@ -4,7 +4,8 @@ import { BackboneRequestHandler } from './handlers/backboneRequestHandler'
 import { PeripheryRequestHandler } from './handlers/peripheryRequestHandler'
 import { connectPythonSock, pythonRequest, pythonSockSetTimeouts } from './handlers/pythonRequestHandler'
 import { ServoIDs } from './types'
-import { PolicyRunner, POLICY_TO_SERVO, computeProjectedGravity } from './policyRunner'
+import { PolicyRunner, POLICY_TO_SERVO, computeProjectedGravity, POLICY_DEBUG_LOGGING } from './policyRunner'
+import * as fs from 'fs'
 import { PolicyRunnerSimple } from './policyRunnerSimple'
 
 import express from 'express'
@@ -65,6 +66,10 @@ export const MasterHandler = (
   
   // Test angle generator for debugging (configure here)
   const testAngleGen = new TestAngleGenerator();
+  
+  // Debug logging state
+  let debugLogStream: fs.WriteStream | null = null;
+  let debugLogStartTime: number = 0;
   testAngleGen.amplitude = 0.5;   // radians
   testAngleGen.frequency = 0.5;   // Hz
   testAngleGen.offset = 0.0;      // radians
@@ -80,93 +85,15 @@ export const MasterHandler = (
   setup();
 
   async function main1() {
-    const servoPositions = await backboneController.queryPositions()
-    await backboneController.setEnabled({
-      1: false,
-      3: false,
-      5: false,
-      7: false
-    })
-    await backboneController.setAccelSymmetric({
-      2: 300,
-      4: 300,
-      6: 300,
-      8: 300
-    })
-    await backboneController.setSpeed({
-      2: 0,
-      4: 0,
-      6: 0,
-      8: 0
-    })
-    await backboneController.setPos({
-      2: 4095 - (servoPositions[1] ?? 0),
-      4: 4095 - (servoPositions[3] ?? 0),
-      6: 4095 - (servoPositions[5] ?? 0),
-      8: 4095 - (servoPositions[7] ?? 0),
-    })
+    console.clear()
+    const imuData = await peripheryController.imu()
+    console.log(JSON.stringify({imuData}, null, 2))
   }
 
-
-  let eyesR = 90
-  let eyesS = 3
-
-  // setInterval(() => {
-  //   const magicNumber = Math.random()
-  //   if (magicNumber > 0.7) {
-  //     eyesR = 10
-  //     eyesS = 20
-  //     setTimeout(() => {
-  //       eyesR = 90
-  //     }, 150)
-  //     setTimeout(() => {
-  //       eyesS = 3
-  //     }, 300)
-  //   } else if (magicNumber > 0.3) {
-  //     eyesR = Math.round(90 - Math.random() * 20)
-  //   }
-  // }, 1000)
-
-  // let shouldLookAtHoomans = true
-  // setInterval(() => {
-  //   if (Math.random() > 0.75) {
-  //     shouldLookAtHoomans = !shouldLookAtHoomans;
-  //     console.log({ shouldLookAtHoomans });
-  //   }
-  // }, 3000)
-
-  let randomLookAroundCounter = 50;
-
   async function main2() {
-    // console.log('running main2')
-
-    await peripheryController.drawEyes({
-      radius: eyesR,
-      speed: eyesS,
-    })
-
-    if (randomLookAroundCounter > 0) {
-      randomLookAroundCounter -= 1;
-    } else {
-      randomLookAroundCounter = Math.round(Math.random() * 25) + 50
-      await backboneController.setSpeed({ 21: 2000, 22: 2000 })
-      // if (shouldLookAtHoomans) {
-      // const lastServoPositions = await backboneController.queryPositions()
-      // const rawYoloDetectionResults = await pythonRequest('READ_CAMERA')
-      // if (rawYoloDetectionResults === null)
-      //     return;
-      //   await backboneController.setAccelSymmetric({ 21: 400, 22: 400 })
-      //   await MoveHeadHandler(backboneController, peripheryController, rawYoloDetectionResults, lastServoPositions)
-      // } else {
-      await backboneController.setAccelSymmetric({ 21: 200, 22: 200, 1: 300, 3: 300 })
-      await backboneController.setSpeed({ 1: 1000, 3: 1000 })
-
-      const randX = Math.random()
-      const randY = Math.random()
-      await peripheryController.drawEyes({ x: 160 - randX * 80, y: 140 - randY * 24, })
-      await backboneController.setPos({ 21: 1200 + randX * 1000, 22: 1900 + randY * 300, 1: 3500 + randX * 100, 2: 595 + randX * 100 })
-      // }
-    }
+    console.clear()
+    const servoPositions = await backboneController.queryPositions()
+    console.log({servoPositions})
   }
 
   /**
@@ -174,37 +101,25 @@ export const MasterHandler = (
    * Reads IMU + servo positions, runs inference, sends servo commands.
    */
   async function main3() {
-        if (!policyRunner || !policyEnabled) {
-      return
-    }
-
-    // try {
-    //   const servoPositions = await backboneController.queryPositions()
-
-    //   const runner = policyRunner
-    //   const testAngle = testAngleGen.get();
-    //   // const testAngle = cmdVel[0]!;
-    //   const obs = runner.buildObservation(testAngle, servoPositions[1]!);
-    //   const action = runner.step(obs);
-    //   const servoTarget = runner.actionToServoPosition(action);
-    //   await backboneController.setSpeed({ 1: 0, })
-    //   await backboneController.setPos({ [runner.getServoId()]: servoTarget });
-
-    // } catch (err) {
-    //   console.error('[main3] Error in policy loop:', err)
-    // }
     if (!policyRunner || !policyEnabled) {
       return
     }
 
+    if (!policyRunner || !policyEnabled) {
+      return
+    }
+    console.clear()
+
+    console.log({cmdVel})
+
     try {
+      const tickTimestamp = Date.now() - debugLogStartTime;
+      
       // Read sensors in parallel
-      // Note: servoSpeeds commented out - policy trained without velocity observations
       const [imuData, servoPositions] = await Promise.all([
         peripheryController.imu(),
         backboneController.queryPositions(),
       ])
-      // const servoSpeeds = await backboneController.querySpeed()
 
       // Check for excessive tilt (emergency stop)
       if (policyRunner.checkExcessiveTilt(imuData.quat)) {
@@ -216,41 +131,45 @@ export const MasterHandler = (
         return
       }
 
-      // // DEBUG: Print raw IMU data
-      // console.log('IMU raw:', {
-      //   acc: imuData.acc,
-      //   gyro: imuData.gyro,
-      //   projGrav: computeProjectedGravity(imuData.quat),
-      // });
-
-      // DEBUG: Print servo positions
-      // console.log('servoPositions:', servoPositions);
-
-      // Get test angle (for debugging/testing)
-      const testAngle = testAngleGen.get();
-
       // Build observation vector
       const obs = policyRunner.buildObservation(
         imuData,
         servoPositions,
         cmdVel,
+        // [0.35, 0.0, 0.0],
       )
-      
-      // DEBUG: Print observation joint positions (indices 12-25)
-      // console.log('obs jointPosRel:', obs.slice(12, 26).map(v => v.toFixed(3)));
+
+      console.log({obs})
 
       // Run policy inference
       const actions = policyRunner.step(obs)
+      const rawActions = policyRunner.getLastRawActions()
 
       // Convert to servo positions
       const servoTargets = policyRunner.actionsToServoPositions(actions)
 
-      // DEBUG: Print actions and servo targets
-      // console.log('actions:', actions.map(a => a.toFixed(3)));
-      // console.log('servoTargets:', servoTargets);
-
       // Send to servos
-      await backboneController.setPos(servoTargets)
+      // await backboneController.setPos(servoTargets)
+      
+      // Debug logging
+      if (POLICY_DEBUG_LOGGING && debugLogStream) {
+        // Round floats to 2 decimals for readability
+        const r = (arr: number[]) => arr.map(v => Math.round(v * 100) / 100);
+        const logEntry = {
+          timestamp_ms: tickTimestamp,
+          observation: r(obs),
+          raw_actions: r(rawActions),
+          clipped_actions: r(actions),
+          servo_targets: servoTargets,
+          servo_positions: servoPositions,
+          imu_raw: {
+            quat: r(imuData.quat),
+            acc: r(imuData.acc),
+            gyro: r(imuData.gyro),
+          },
+        };
+        debugLogStream.write(JSON.stringify(logEntry) + '\n');
+      }
     } catch (err) {
       console.error('[main3] Error in policy loop:', err)
     }
@@ -462,9 +381,17 @@ export const MasterHandler = (
     policyRunner.reset()
     policyEnabled = true
     cmdVel = [0.0, 0.0, 0.0] // Start stationary
+    
+    // Start debug logging if enabled
+    if (POLICY_DEBUG_LOGGING) {
+      const logFilename = `policy_debug_${Date.now()}.jsonl`;
+      debugLogStream = fs.createWriteStream(logFilename);
+      debugLogStartTime = Date.now();
+      console.log(`[policy/enable] Debug logging to ${logFilename}`);
+    }
 
     // Start main3 at 50Hz (20ms period)
-    await backboneController.setSpeed(makeGlobalServoValues(1000))
+    await backboneController.setSpeed(makeGlobalServoValues(0))
     currentLoop = createRunLoop(20, main3, { shouldLog: true })
     console.log('[policy/enable] Policy control enabled at 50Hz')
     res.send({ success: true, message: 'Policy enabled' })
@@ -480,6 +407,14 @@ export const MasterHandler = (
       await currentLoop.stop()
       currentLoop = null
     }
+    
+    // Close debug log if open
+    if (debugLogStream) {
+      debugLogStream.end();
+      console.log('[policy/disable] Debug log closed');
+      debugLogStream = null;
+    }
+    
     console.log('[policy/disable] Policy control disabled')
     res.send({ success: true, message: 'Policy disabled' })
   })
