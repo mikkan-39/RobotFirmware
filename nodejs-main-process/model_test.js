@@ -1,18 +1,23 @@
-// const binding = require("./build/Release/binding.node");
-// const binding = require("./build/Release/JSClang.node");
+/**
+ * Quick addon smoke test (same stack as production).
+ *
+ * Cross-check vs Python: see tests/run_model_node.mjs + tests/run_model_torch.py
+ *
+ * Usage (from nodejs-main-process/):
+ *   node model_test.js
+ *   node model_test.js tests/fixture_obs.json
+ */
+const path = require('path')
+const fs = require('fs')
 
-// const input = [0, 2.3, 3];
-// const result = binding.multiplyByTwo(input);
+const addon = require('./build/Release/JSClang.node')
 
-// console.log("Input:", input);
-// console.log("Result:", result);
+const obsPath = process.argv[2] || path.join(__dirname, 'tests', 'fixture_obs.json')
+const obs = JSON.parse(fs.readFileSync(obsPath, 'utf8'))
 
-const addon = require("./build/Release/JSClang.node");
+addon.loadModel(path.join(__dirname, 'policy.pt'))
+const output = addon.runModel(obs)
 
-// Load the model first
-addon.loadModel("policy.pt");
-
-//array of 54 zeros
-const input = Array(54).fill(0);
-const output = addon.runModel(input);
-console.log("Output:", output);
+console.log('obs_path:', obsPath)
+console.log('obs_len:', obs.length)
+console.log('output:', output)

@@ -1,30 +1,48 @@
-import { SerialPort } from 'serialport'
-import { calculateServoSpeeds, createRunLoop, crouchedPosition, makeGlobalServoValues, makeLegServoValues, RunLoopControl, sleep, standingPosition } from './utils'
-import { BackboneRequestHandler } from './handlers/backboneRequestHandler'
-import { PeripheryRequestHandler } from './handlers/peripheryRequestHandler'
-import { connectPythonSock, pythonRequest, pythonSockSetTimeouts } from './handlers/pythonRequestHandler'
-import { ServoIDs } from './types'
-import { PolicyRunner, POLICY_TO_SERVO, computeProjectedGravity, POLICY_DEBUG_LOGGING } from './policyRunner'
-import * as fs from 'fs'
-import { PolicyRunnerSimple } from './policyRunnerSimple'
+import {SerialPort} from 'serialport';
+import {
+  calculateServoSpeeds,
+  createRunLoop,
+  crouchedPosition,
+  makeGlobalServoValues,
+  makeLegServoValues,
+  RunLoopControl,
+  sleep,
+  standingPosition,
+} from './utils';
+import {BackboneRequestHandler} from './handlers/backboneRequestHandler';
+import {PeripheryRequestHandler} from './handlers/peripheryRequestHandler';
+import {
+  connectPythonSock,
+  pythonRequest,
+  pythonSockSetTimeouts,
+} from './handlers/pythonRequestHandler';
+import {ServoIDs} from './types';
+import {
+  PolicyRunner,
+  POLICY_TO_SERVO,
+  computeProjectedGravity,
+  POLICY_DEBUG_LOGGING,
+} from './policyRunner';
+import * as fs from 'fs';
+import {PolicyRunnerSimple} from './policyRunnerSimple';
 
-import express from 'express'
-import bodyParser from 'body-parser'
-import { MoveHeadHandler } from './handlers'
+import express from 'express';
+import bodyParser from 'body-parser';
+import {MoveHeadHandler} from './handlers';
 // import { WebSocket } from 'ws'
 
-const app = express()
-const port = 3901
-app.use(bodyParser.json())
+const app = express();
+const port = 3901;
+app.use(bodyParser.json());
 // const wss = new WebSocket.Server({ port: 3902 })
 
 /**
  * Test angle generator - produces a sine wave for testing.
  */
 class TestAngleGenerator {
-  amplitude = 0.0;   // radians
-  frequency = 0.5;   // Hz
-  offset = 0.0;      // radians
+  amplitude = 0.0; // radians
+  frequency = 0.5; // Hz
+  offset = 0.0; // radians
   private startTime: number | null = null;
 
   /** Get current angle value */
@@ -33,7 +51,9 @@ class TestAngleGenerator {
       this.startTime = Date.now();
     }
     const t = (Date.now() - this.startTime) / 1000; // seconds
-    return this.offset + this.amplitude * Math.sin(2 * Math.PI * this.frequency * t);
+    return (
+      this.offset + this.amplitude * Math.sin(2 * Math.PI * this.frequency * t)
+    );
   }
 
   /** Reset the phase (restart from t=0) */
@@ -53,47 +73,60 @@ export const MasterHandler = (
   BackbonePort: SerialPort,
   HeadPort: SerialPort,
 ) => {
-  const peripheryController = new PeripheryRequestHandler('Periphery', HeadPort)
-  const backboneController = new BackboneRequestHandler('Backbone', BackbonePort)
-  connectPythonSock()
+  const peripheryController = new PeripheryRequestHandler(
+    'Periphery',
+    HeadPort,
+  );
+  const backboneController = new BackboneRequestHandler(
+    'Backbone',
+    BackbonePort,
+  );
+  connectPythonSock();
 
-  let currentLoop: RunLoopControl | null = null
+  let currentLoop: RunLoopControl | null = null;
 
   // Policy runner for locomotion control
-  let policyRunner: PolicyRunner | null = null
-  let policyEnabled = false
-  let cmdVel: [number, number, number] = [0.0, 0.0, 0.0] // [vx, vy, wz]
-  
+  let policyRunner: PolicyRunner | null = null;
+  let policyEnabled = false;
+  let cmdVel: [number, number, number] = [0.0, 0.0, 0.0]; // [vx, vy, wz]
+
   // Test angle generator for debugging (configure here)
   const testAngleGen = new TestAngleGenerator();
-  
+
   // Debug logging state
   let debugLogStream: fs.WriteStream | null = null;
   let debugLogStartTime: number = 0;
-  testAngleGen.amplitude = 0.5;   // radians
-  testAngleGen.frequency = 0.5;   // Hz
-  testAngleGen.offset = 0.0;      // radians
+  testAngleGen.amplitude = 0.5; // radians
+  testAngleGen.frequency = 0.5; // Hz
+  testAngleGen.offset = 0.0; // radians
 
   const setup = async () => {
-    console.log(await peripheryController.ping())
-    console.log(await backboneController.ping())
+    console.log(await peripheryController.ping());
+    console.log(await backboneController.ping());
     // console.log(await pythonRequest('PING'))
 
     // pythonSockSetTimeouts()
-  }
+  };
 
   setup();
 
   async function main1() {
-    console.clear()
-    const imuData = await peripheryController.imu()
-    console.log(JSON.stringify({imuData}, null, 2))
+    console.clear();
+    const imuData = await peripheryController.imu();
+    console.log(JSON.stringify({imuData}, null, 2));
+    console.log(
+      JSON.stringify(
+        {computedGrav: computeProjectedGravity(imuData.quat)},
+        null,
+        2,
+      ),
+    );
   }
 
   async function main2() {
-    console.clear()
-    const servoPositions = await backboneController.queryPositions()
-    console.log({servoPositions})
+    console.clear();
+    const servoPositions = await backboneController.queryPositions();
+    console.log({servoPositions});
   }
 
   /**
@@ -102,33 +135,33 @@ export const MasterHandler = (
    */
   async function main3() {
     if (!policyRunner || !policyEnabled) {
-      return
+      return;
     }
 
     if (!policyRunner || !policyEnabled) {
-      return
+      return;
     }
-    console.clear()
+    console.clear();
 
-    console.log({cmdVel})
+    console.log({cmdVel});
 
     try {
       const tickTimestamp = Date.now() - debugLogStartTime;
-      
+
       // Read sensors in parallel
       const [imuData, servoPositions] = await Promise.all([
         peripheryController.imu(),
         backboneController.queryPositions(),
-      ])
+      ]);
 
       // Check for excessive tilt (emergency stop)
       if (policyRunner.checkExcessiveTilt(imuData.quat)) {
-        const projGrav = computeProjectedGravity(imuData.quat)
-        console.warn('[main3] Excessive tilt detected! Disabling policy.')
-        console.log('quat:', imuData.quat, 'projectedGravity:', projGrav)
-        policyEnabled = false
-        await backboneController.exit()
-        return
+        const projGrav = computeProjectedGravity(imuData.quat);
+        console.warn('[main3] Excessive tilt detected! Disabling policy.');
+        console.log('quat:', imuData.quat, 'projectedGravity:', projGrav);
+        policyEnabled = false;
+        await backboneController.exit();
+        return;
       }
 
       // Build observation vector
@@ -137,24 +170,24 @@ export const MasterHandler = (
         servoPositions,
         cmdVel,
         // [0.35, 0.0, 0.0],
-      )
+      );
 
-      console.log({obs})
+      console.log({obs});
 
       // Run policy inference
-      const actions = policyRunner.step(obs)
-      const rawActions = policyRunner.getLastRawActions()
+      const actions = policyRunner.step(obs);
+      const rawActions = policyRunner.getLastRawActions();
 
       // Convert to servo positions
-      const servoTargets = policyRunner.actionsToServoPositions(actions)
+      const servoTargets = policyRunner.actionsToServoPositions(actions);
 
       // Send to servos
-      // await backboneController.setPos(servoTargets)
-      
+      await backboneController.setPos(servoTargets);
+
       // Debug logging
       if (POLICY_DEBUG_LOGGING && debugLogStream) {
         // Round floats to 2 decimals for readability
-        const r = (arr: number[]) => arr.map(v => Math.round(v * 100) / 100);
+        const r = (arr: number[]) => arr.map((v) => Math.round(v * 100) / 100);
         const logEntry = {
           timestamp_ms: tickTimestamp,
           observation: r(obs),
@@ -171,7 +204,7 @@ export const MasterHandler = (
         debugLogStream.write(JSON.stringify(logEntry) + '\n');
       }
     } catch (err) {
-      console.error('[main3] Error in policy loop:', err)
+      console.error('[main3] Error in policy loop:', err);
     }
   }
 
@@ -180,7 +213,6 @@ export const MasterHandler = (
   // runLoop.resume()
   // runLoop.isRunning()
 
-
   const mainMap: Record<string, () => Promise<void>> = {
     main1,
     main2,
@@ -188,31 +220,35 @@ export const MasterHandler = (
   };
 
   app.get('/start', async (_, res) => {
-    res.status(200).send()
-    await peripheryController.drawLoading()
+    res.status(200).send();
+    await peripheryController.drawLoading();
 
-    const servoPositions = await backboneController.queryPositions()
+    const servoPositions = await backboneController.queryPositions();
 
-    const desiredPositions = crouchedPosition
+    const desiredPositions = crouchedPosition;
 
-    const desiredSpeeds = calculateServoSpeeds(servoPositions, desiredPositions, 3);
-    await backboneController.setSpeed(desiredSpeeds)
-    await backboneController.setPos(desiredPositions)
-  })
+    const desiredSpeeds = calculateServoSpeeds(
+      servoPositions,
+      desiredPositions,
+      3,
+    );
+    await backboneController.setSpeed(desiredSpeeds);
+    await backboneController.setPos(desiredPositions);
+  });
 
   app.get('/stop', async (_, res) => {
-    res.status(200).send()
+    res.status(200).send();
     if (currentLoop) {
       console.log(`[INFO] Stopping current loop...`);
       await currentLoop.stop();
       currentLoop = null;
     }
     // await peripheryController.drawInit()
-    await backboneController.exit()
-  })
+    await backboneController.exit();
+  });
 
   app.get('/wave', async (_, res) => {
-    res.status(200).send()
+    res.status(200).send();
 
     if (currentLoop) {
       console.log(`[INFO] Stopping current loop...`);
@@ -221,41 +257,80 @@ export const MasterHandler = (
     }
 
     try {
-      await peripheryController.drawEyes({ radius: 30, speed: 10, x: 128, y: 128 })
-      await sleep(150)
-      await peripheryController.drawEyes({ radius: 90, speed: 10 })
+      await peripheryController.drawEyes({
+        radius: 30,
+        speed: 10,
+        x: 128,
+        y: 128,
+      });
+      await sleep(150);
+      await peripheryController.drawEyes({radius: 90, speed: 10});
 
       await backboneController.setSpeed({
         2: 1000,
         4: 1000,
         6: 1000,
-        8: 1000
-      })
-      await backboneController.setAccelSymmetric({ 1: 300, 3: 300, 5: 200, 7: 150, 2: 300, 4: 300, 6: 300, 8: 300, 21: 400, 22: 400 })
-      await backboneController.setSpeed({ 1: 2000, 3: 2000, 7: 4000, 21: 1000, 22: 500 })
-      await backboneController.setPos({ 1: 2048, 3: 2048, 5: 2048, 7: 800, 2: 4095 - 3500, 4: 4095 - 2800, 6: 2048, 8: 4095 - 800, 21: 1800, 22: 1900 })
-      await sleep(1000)
-      await backboneController.setPos({ 7: 2048, 5: 2400, 22: 2100 })
-      await sleep(500)
-      await backboneController.setPos({ 7: 800, 5: 2048, })
-      await sleep(500)
-      await backboneController.setPos({ 7: 2048, 5: 2400 })
-      await sleep(500)
-      await backboneController.setPos({ 1: 3500, 3: 2800, 5: 2048, 7: 800, 22: 1900 })
-      await peripheryController.drawEyes({ radius: 30, speed: 10 })
-      await sleep(150)
-      await peripheryController.drawEyes({ radius: 90, speed: 10 })
-      await sleep(150)
-      await peripheryController.drawEyes({ radius: 30, speed: 10 })
-      await sleep(150)
-      await peripheryController.drawEyes({ radius: 90, speed: 10 })
+        8: 1000,
+      });
+      await backboneController.setAccelSymmetric({
+        1: 300,
+        3: 300,
+        5: 200,
+        7: 150,
+        2: 300,
+        4: 300,
+        6: 300,
+        8: 300,
+        21: 400,
+        22: 400,
+      });
+      await backboneController.setSpeed({
+        1: 2000,
+        3: 2000,
+        7: 4000,
+        21: 1000,
+        22: 500,
+      });
+      await backboneController.setPos({
+        1: 2048,
+        3: 2048,
+        5: 2048,
+        7: 800,
+        2: 4095 - 3500,
+        4: 4095 - 2800,
+        6: 2048,
+        8: 4095 - 800,
+        21: 1800,
+        22: 1900,
+      });
+      await sleep(1000);
+      await backboneController.setPos({7: 2048, 5: 2400, 22: 2100});
+      await sleep(500);
+      await backboneController.setPos({7: 800, 5: 2048});
+      await sleep(500);
+      await backboneController.setPos({7: 2048, 5: 2400});
+      await sleep(500);
+      await backboneController.setPos({
+        1: 3500,
+        3: 2800,
+        5: 2048,
+        7: 800,
+        22: 1900,
+      });
+      await peripheryController.drawEyes({radius: 30, speed: 10});
+      await sleep(150);
+      await peripheryController.drawEyes({radius: 90, speed: 10});
+      await sleep(150);
+      await peripheryController.drawEyes({radius: 30, speed: 10});
+      await sleep(150);
+      await peripheryController.drawEyes({radius: 90, speed: 10});
     } catch (err) {
-      console.error(err)
+      console.error(err);
     }
-  })
+  });
 
   app.get('/bow', async (_, res) => {
-    res.status(200).send()
+    res.status(200).send();
 
     if (currentLoop) {
       console.log(`[INFO] Stopping current loop...`);
@@ -264,59 +339,88 @@ export const MasterHandler = (
     }
 
     try {
-      await peripheryController.drawEyes({ radius: 30, speed: 10, x: 128, y: 128 })
-      await sleep(150)
-      await peripheryController.drawEyes({ radius: 90, speed: 10 })
+      await peripheryController.drawEyes({
+        radius: 30,
+        speed: 10,
+        x: 128,
+        y: 128,
+      });
+      await sleep(150);
+      await peripheryController.drawEyes({radius: 90, speed: 10});
 
       await backboneController.setSpeed({
         2: 1000,
         4: 1000,
         6: 1000,
-        8: 1000
-      })
-      await backboneController.setAccelSymmetric({ 1: 300, 3: 300, 5: 200, 7: 150, 2: 300, 4: 300, 6: 300, 8: 300, 21: 400, 22: 400 })
-      await backboneController.setPos({ 1: 3500, 3: 2800, 5: 2048, 7: 800, 2: 4095 - 3500, 4: 4095 - 2800, 8: 4095 - 800, 21: 1800, 22: 1900 })
-      await sleep(500)
-      await backboneController.setPos({ 2: 1400 })
-      await sleep(300)
-      await backboneController.setPos({ 6: 1024 })
-      await sleep(500)
+        8: 1000,
+      });
+      await backboneController.setAccelSymmetric({
+        1: 300,
+        3: 300,
+        5: 200,
+        7: 150,
+        2: 300,
+        4: 300,
+        6: 300,
+        8: 300,
+        21: 400,
+        22: 400,
+      });
+      await backboneController.setPos({
+        1: 3500,
+        3: 2800,
+        5: 2048,
+        7: 800,
+        2: 4095 - 3500,
+        4: 4095 - 2800,
+        8: 4095 - 800,
+        21: 1800,
+        22: 1900,
+      });
+      await sleep(500);
+      await backboneController.setPos({2: 1400});
+      await sleep(300);
+      await backboneController.setPos({6: 1024});
+      await sleep(500);
 
       const bowPosition = {
-        "13": 1410,
-        "14": 2690,
-        "17": 1780,
-        "18": 2343,
-      }
-      let desiredSpeeds = calculateServoSpeeds(crouchedPosition, bowPosition, 1);
-      await backboneController.setSpeed(desiredSpeeds)
-      await backboneController.setPos(bowPosition)
-      await backboneController.setPos({ 22: 1600 })
-      await peripheryController.drawLoading()
-      await sleep(1500)
+        '13': 1410,
+        '14': 2690,
+        '17': 1780,
+        '18': 2343,
+      };
+      let desiredSpeeds = calculateServoSpeeds(
+        crouchedPosition,
+        bowPosition,
+        1,
+      );
+      await backboneController.setSpeed(desiredSpeeds);
+      await backboneController.setPos(bowPosition);
+      await backboneController.setPos({22: 1600});
+      await peripheryController.drawLoading();
+      await sleep(1500);
 
       const normalPosition = {
-        "13": 1610,
-        "14": 2490,
-        "17": 1680,
-        "18": 2443,
-      }
+        '13': 1610,
+        '14': 2490,
+        '17': 1680,
+        '18': 2443,
+      };
       desiredSpeeds = calculateServoSpeeds(bowPosition, normalPosition, 1);
-      await backboneController.setSpeed(desiredSpeeds)
-      await backboneController.setPos(normalPosition)
-      await backboneController.setPos({ 22: 1900 })
-      await sleep(1500)
-      await backboneController.setPos({ 6: 2048 })
-      await sleep(300)
-      await backboneController.setPos({ 2: 595 })
-
+      await backboneController.setSpeed(desiredSpeeds);
+      await backboneController.setPos(normalPosition);
+      await backboneController.setPos({22: 1900});
+      await sleep(1500);
+      await backboneController.setPos({6: 2048});
+      await sleep(300);
+      await backboneController.setPos({2: 595});
     } catch (err) {
-      console.error(err)
+      console.error(err);
     }
-  })
+  });
 
   app.post('/switchMain', async (req, res) => {
-    await peripheryController.drawLoading()
+    await peripheryController.drawLoading();
 
     const mainName = req.body?.main;
 
@@ -337,13 +441,13 @@ export const MasterHandler = (
   });
 
   app.get('/stopLoop', async (_, res) => {
-    res.status(200).send()
+    res.status(200).send();
     if (currentLoop) {
       console.log(`[INFO] Stopping current loop...`);
       await currentLoop.stop();
       currentLoop = null;
     }
-  })
+  });
 
   // Policy control endpoints
 
@@ -352,15 +456,15 @@ export const MasterHandler = (
    * POST /policy/init { modelPath?: string }
    */
   app.post('/policy/init', async (req, res) => {
-    const modelPath = req.body?.modelPath ?? 'policy.pt'
+    const modelPath = req.body?.modelPath ?? 'policy.pt';
     try {
-      policyRunner = new PolicyRunner(modelPath)
-      res.send({ success: true, message: `Policy loaded from ${modelPath}` })
+      policyRunner = new PolicyRunner(modelPath);
+      res.send({success: true, message: `Policy loaded from ${modelPath}`});
     } catch (err) {
-      console.error('[policy/init] Error:', err)
-      res.status(500).send({ success: false, error: String(err) })
+      console.error('[policy/init] Error:', err);
+      res.status(500).send({success: false, error: String(err)});
     }
-  })
+  });
 
   /**
    * Enable policy control and start main3 loop at 50Hz.
@@ -368,20 +472,23 @@ export const MasterHandler = (
    */
   app.get('/policy/enable', async (_, res) => {
     if (!policyRunner) {
-      res.status(400).send({ success: false, error: 'Policy not initialized. Call /policy/init first.' })
-      return
+      res.status(400).send({
+        success: false,
+        error: 'Policy not initialized. Call /policy/init first.',
+      });
+      return;
     }
 
     // Stop any existing loop
     if (currentLoop) {
-      await currentLoop.stop()
-      currentLoop = null
+      await currentLoop.stop();
+      currentLoop = null;
     }
 
-    policyRunner.reset()
-    policyEnabled = true
-    cmdVel = [0.0, 0.0, 0.0] // Start stationary
-    
+    policyRunner.reset();
+    policyEnabled = true;
+    cmdVel = [0.0, 0.0, 0.0]; // Start stationary
+
     // Start debug logging if enabled
     if (POLICY_DEBUG_LOGGING) {
       const logFilename = `policy_debug_${Date.now()}.jsonl`;
@@ -391,55 +498,57 @@ export const MasterHandler = (
     }
 
     // Start main3 at 50Hz (20ms period)
-    await backboneController.setSpeed(makeGlobalServoValues(0))
-    currentLoop = createRunLoop(20, main3, { shouldLog: true })
-    console.log('[policy/enable] Policy control enabled at 50Hz')
-    res.send({ success: true, message: 'Policy enabled' })
-  })
+    await backboneController.setSpeed(makeGlobalServoValues(0));
+    currentLoop = createRunLoop(20, main3, {shouldLog: true});
+    console.log('[policy/enable] Policy control enabled at 50Hz');
+    res.send({success: true, message: 'Policy enabled'});
+  });
 
   /**
    * Disable policy control.
    * GET /policy/disable
    */
   app.get('/policy/disable', async (_, res) => {
-    policyEnabled = false
+    policyEnabled = false;
     if (currentLoop) {
-      await currentLoop.stop()
-      currentLoop = null
+      await currentLoop.stop();
+      currentLoop = null;
     }
-    
+
     // Close debug log if open
     if (debugLogStream) {
       debugLogStream.end();
       console.log('[policy/disable] Debug log closed');
       debugLogStream = null;
     }
-    
-    console.log('[policy/disable] Policy control disabled')
-    res.send({ success: true, message: 'Policy disabled' })
-  })
+
+    console.log('[policy/disable] Policy control disabled');
+    res.send({success: true, message: 'Policy disabled'});
+  });
 
   /**
    * Set velocity command [vx, vy, wz].
    * POST /policy/cmd { vx: number, vy: number, wz: number }
-   * 
+   *
    * Safe ranges from training:
    *   vx: [0.0, 1.0] m/s
    *   vy: [0.0, 0.0] m/s (no lateral)
    *   wz: [-1.0, 1.0] rad/s
    */
   app.post('/policy/cmd', (req, res) => {
-    const { vx = 0, vy = 0, wz = 0 } = req.body ?? {}
+    const {vx = 0, vy = 0, wz = 0} = req.body ?? {};
 
     // Clamp to training distribution
-    const clampedVx = Math.max(0, Math.min(1.0, Number(vx)))
-    const clampedVy = 0 // No lateral movement supported
-    const clampedWz = Math.max(-1.0, Math.min(1.0, Number(wz)))
+    const clampedVx = Math.max(0, Math.min(1.0, Number(vx)));
+    const clampedVy = 0; // No lateral movement supported
+    const clampedWz = Math.max(-1.0, Math.min(1.0, Number(wz)));
 
-    cmdVel = [clampedVx, clampedVy, clampedWz]
-    console.log(`[policy/cmd] Set velocity: vx=${clampedVx}, vy=${clampedVy}, wz=${clampedWz}`)
-    res.send({ success: true, cmdVel })
-  })
+    cmdVel = [clampedVx, clampedVy, clampedWz];
+    console.log(
+      `[policy/cmd] Set velocity: vx=${clampedVx}, vy=${clampedVy}, wz=${clampedWz}`,
+    );
+    res.send({success: true, cmdVel});
+  });
 
   /**
    * Get current policy status.
@@ -451,36 +560,111 @@ export const MasterHandler = (
       enabled: policyEnabled,
       cmdVel,
       loopRunning: currentLoop?.isRunning() ?? false,
-    })
-  })
+    });
+  });
 
   /**
    * Joint verification test - bypasses policy, sets one joint at a time.
    * GET /policy/test/:jointIndex
-   * 
+   *
    * Sets the specified joint to a test angle while keeping others at 0.
    * Returns expected visual appearance for verification.
    */
-  const JOINT_TESTS: { index: number; testValue: number; name: string; expected: string }[] = [
-    { index: 0,  testValue: +0.3, name: 'HIP_ROTATE_L', expected: 'Left toe rotates INWARD ~17°' },
-    { index: 1,  testValue: +0.3, name: 'HIP_ROTATE_R', expected: 'Right toe rotates OUTWARD ~17°' },
-    { index: 2,  testValue: +0.3, name: 'SHOULDER_MAIN_L', expected: 'Left arm swings BACKWARD ~17°' },
-    { index: 3,  testValue: +0.3, name: 'SHOULDER_MAIN_R', expected: 'Right arm swings FORWARD ~17°' },
-    { index: 4,  testValue: +0.25, name: 'HIP_TILT_L', expected: 'Left leg moves INWARD ~14°' },
-    { index: 5,  testValue: +0.25, name: 'HIP_TILT_R', expected: 'Right leg moves INWARD ~14°' },
-    { index: 6,  testValue: +0.4, name: 'HIP_MAIN_L', expected: 'Left thigh moves BACKWARD ~23°' },
-    { index: 7,  testValue: +0.4, name: 'HIP_MAIN_R', expected: 'Right thigh moves FORWARD ~23°' },
-    { index: 8,  testValue: +0.5, name: 'KNEE_L', expected: 'Left knee BENDS ~29°' },
-    { index: 9,  testValue: -0.5, name: 'KNEE_R', expected: 'Right knee BENDS ~29° (- is bend)' },
-    { index: 10, testValue: -0.3, name: 'FOOT_MAIN_L', expected: 'Left ankle: toe points UP ~17° (- is toe up)' },
-    { index: 11, testValue: -0.3, name: 'FOOT_MAIN_R', expected: 'Right ankle: toe points UP ~17° (- is toe up)' },
-    { index: 12, testValue: +0.2, name: 'FOOT_TILT_L', expected: 'Left foot tilts INWARD ~11°' },
-    { index: 13, testValue: +0.2, name: 'FOOT_TILT_R', expected: 'Right foot tilts INWARD ~11°' },
-  ]
+  const JOINT_TESTS: {
+    index: number;
+    testValue: number;
+    name: string;
+    expected: string;
+  }[] = [
+    {
+      index: 0,
+      testValue: +0.3,
+      name: 'HIP_ROTATE_L',
+      expected: 'Left toe rotates INWARD ~17°',
+    },
+    {
+      index: 1,
+      testValue: +0.3,
+      name: 'HIP_ROTATE_R',
+      expected: 'Right toe rotates OUTWARD ~17°',
+    },
+    {
+      index: 2,
+      testValue: +0.3,
+      name: 'SHOULDER_MAIN_L',
+      expected: 'Left arm swings BACKWARD ~17°',
+    },
+    {
+      index: 3,
+      testValue: +0.3,
+      name: 'SHOULDER_MAIN_R',
+      expected: 'Right arm swings FORWARD ~17°',
+    },
+    {
+      index: 4,
+      testValue: +0.25,
+      name: 'HIP_TILT_L',
+      expected: 'Left leg moves INWARD ~14°',
+    },
+    {
+      index: 5,
+      testValue: +0.25,
+      name: 'HIP_TILT_R',
+      expected: 'Right leg moves INWARD ~14°',
+    },
+    {
+      index: 6,
+      testValue: +0.4,
+      name: 'HIP_MAIN_L',
+      expected: 'Left thigh moves BACKWARD ~23°',
+    },
+    {
+      index: 7,
+      testValue: +0.4,
+      name: 'HIP_MAIN_R',
+      expected: 'Right thigh moves FORWARD ~23°',
+    },
+    {
+      index: 8,
+      testValue: +0.5,
+      name: 'KNEE_L',
+      expected: 'Left knee BENDS ~29°',
+    },
+    {
+      index: 9,
+      testValue: -0.5,
+      name: 'KNEE_R',
+      expected: 'Right knee BENDS ~29° (- is bend)',
+    },
+    {
+      index: 10,
+      testValue: -0.3,
+      name: 'FOOT_MAIN_L',
+      expected: 'Left ankle: toe points UP ~17° (- is toe up)',
+    },
+    {
+      index: 11,
+      testValue: -0.3,
+      name: 'FOOT_MAIN_R',
+      expected: 'Right ankle: toe points UP ~17° (- is toe up)',
+    },
+    {
+      index: 12,
+      testValue: +0.2,
+      name: 'FOOT_TILT_L',
+      expected: 'Left foot tilts INWARD ~11°',
+    },
+    {
+      index: 13,
+      testValue: +0.2,
+      name: 'FOOT_TILT_R',
+      expected: 'Right foot tilts INWARD ~11°',
+    },
+  ];
 
   // app.get('/policy/test/:jointIndex', async (req, res) => {
   //   const jointIndex = parseInt(req.params.jointIndex)
-    
+
   //   if (isNaN(jointIndex) || jointIndex < 0 || jointIndex >= 14) {
   //     res.status(400).send({ error: 'Joint index must be 0-13' })
   //     return
@@ -540,7 +724,7 @@ export const MasterHandler = (
 
   //   // All zeros
   //   const testActions = new Array(14).fill(0)
-    
+
   //   if (!policyRunner) {
   //     policyRunner = new PolicyRunner('policy.pt')
   //   }
@@ -560,11 +744,11 @@ export const MasterHandler = (
   /**
    * Step response test for servo characterization.
    * GET /test_step
-   * 
+   *
    * Records position tracking at 50Hz while applying a step input.
    */
   app.get('/testStep', async (_, res) => {
-    const SERVO_ID = 7;  // ELBOW_MAIN_R
+    const SERVO_ID = 7; // ELBOW_MAIN_R
     const STEPS_PER_RAD = 4095 / (2 * Math.PI);
     const START_POS = 2048;
     const TARGET_POS = 1024;
@@ -581,9 +765,9 @@ export const MasterHandler = (
     console.log('[test_step] Starting step response test...');
 
     // Set speed to 0 (no limit) and move to start position
-    await backboneController.setSpeed({ [SERVO_ID]: 0 });
-    await backboneController.setAccelSymmetric({ [SERVO_ID]: 0 });
-    await backboneController.setPos({ [SERVO_ID]: START_POS });
+    await backboneController.setSpeed({[SERVO_ID]: 0});
+    await backboneController.setAccelSymmetric({[SERVO_ID]: 0});
+    await backboneController.setPos({[SERVO_ID]: START_POS});
 
     // Wait for servo to reach start position
     await sleep(500);
@@ -603,12 +787,15 @@ export const MasterHandler = (
       const timestamp = Date.now() - startTime;
       const targetRad = posToRad(targetPos);
       const actualRad = posToRad(actualPos);
-      csvRows.push(`${timestamp},${targetRad.toFixed(6)},${actualRad.toFixed(6)}`);
+      csvRows.push(
+        `${timestamp},${targetRad.toFixed(6)},${actualRad.toFixed(6)}`,
+      );
     };
 
     // Phase 1: Record at start position for 0.5s
     console.log('[test_step] Phase 1: Recording at start position...');
-    for (let i = 0; i < 25; i++) {  // 25 samples = 0.5s at 50Hz
+    for (let i = 0; i < 25; i++) {
+      // 25 samples = 0.5s at 50Hz
       await recordSample();
       await sleep(RECORD_INTERVAL_MS);
     }
@@ -616,7 +803,7 @@ export const MasterHandler = (
     // Phase 2: Apply step and record for 0.5s
     console.log('[test_step] Phase 2: Applying step to target...');
     targetPos = TARGET_POS;
-    await backboneController.setPos({ [SERVO_ID]: TARGET_POS });
+    await backboneController.setPos({[SERVO_ID]: TARGET_POS});
     for (let i = 0; i < 25; i++) {
       await recordSample();
       await sleep(RECORD_INTERVAL_MS);
@@ -627,7 +814,9 @@ export const MasterHandler = (
     const fs = await import('fs');
     fs.writeFileSync(filename, csvRows.join('\n'));
 
-    console.log(`[test_step] Done. Saved ${csvRows.length} samples to ${filename}`);
+    console.log(
+      `[test_step] Done. Saved ${csvRows.length} samples to ${filename}`,
+    );
     res.send({
       success: true,
       filename,
@@ -638,8 +827,8 @@ export const MasterHandler = (
   });
 
   app.listen(port, () => {
-    console.log(`Robot server running on port ${port}`)
-  })
+    console.log(`Robot server running on port ${port}`);
+  });
 
   // wss.on('connection', (ws) => {
   //   console.log('WebSocket connection established')
@@ -655,4 +844,4 @@ export const MasterHandler = (
   //     console.log('WebSocket connection closed')
   //   })
   // })
-}
+};

@@ -1,4 +1,4 @@
-import { servoConfig, ServoMiddle } from './types';
+import {servoConfig, ServoMiddle} from './types';
 
 // Native addon for PyTorch inference
 // eslint-disable-next-line @typescript-eslint/no-var-requires
@@ -32,27 +32,27 @@ Joint order and directions verified through training environment.
  * Order matches training environment (verified via Isaac Lab).
  */
 export const POLICY_TO_SERVO: number[] = [
-  10,  // 0: HIP_ROTATE_L (base_link_to_LeftHipBracket_revolute)
-  9,   // 1: HIP_ROTATE_R (base_link_to_RightHipBracket_revolute)
-  2,   // 2: SHOULDER_MAIN_L (base_link_to_shoulder_joint_v1Mirror_revolute)
-  1,   // 3: SHOULDER_MAIN_R (base_link_to_shoulder_joint_v1_revolute)
-  12,  // 4: HIP_TILT_L (LeftHipBracket_to_HipBulkL_revolute)
-  11,  // 5: HIP_TILT_R (RightHipBracket_to_HipBulkR_revolute)
-  14,  // 6: HIP_MAIN_L (HipBulkL_to_HipL_revolute)
-  13,  // 7: HIP_MAIN_R (HipBulkR_to_HipR_revolute)
-  16,  // 8: KNEE_L (HipL_to_TibiaL_revolute)
-  15,  // 9: KNEE_R (HipR_to_TibiaR_revolute)
-  18,  // 10: FOOT_MAIN_L (TibiaL_to_FootJointL_revolute)
-  17,  // 11: FOOT_MAIN_R (TibiaR_to_FootJointR_revolute)
-  20,  // 12: FOOT_TILT_L (FootJointL_to_LeftFoot_revolute)
-  19,  // 13: FOOT_TILT_R (FootJointR_to_RightFoot_revolute)
+  10, // 0: HIP_ROTATE_L (base_link_to_LeftHipBracket_revolute)
+  9, // 1: HIP_ROTATE_R (base_link_to_RightHipBracket_revolute)
+  2, // 2: SHOULDER_MAIN_L (base_link_to_shoulder_joint_v1Mirror_revolute)
+  1, // 3: SHOULDER_MAIN_R (base_link_to_shoulder_joint_v1_revolute)
+  12, // 4: HIP_TILT_L (LeftHipBracket_to_HipBulkL_revolute)
+  11, // 5: HIP_TILT_R (RightHipBracket_to_HipBulkR_revolute)
+  14, // 6: HIP_MAIN_L (HipBulkL_to_HipL_revolute)
+  13, // 7: HIP_MAIN_R (HipBulkR_to_HipR_revolute)
+  16, // 8: KNEE_L (HipL_to_TibiaL_revolute)
+  15, // 9: KNEE_R (HipR_to_TibiaR_revolute)
+  18, // 10: FOOT_MAIN_L (TibiaL_to_FootJointL_revolute)
+  17, // 11: FOOT_MAIN_R (TibiaR_to_FootJointR_revolute)
+  20, // 12: FOOT_TILT_L (FootJointL_to_LeftFoot_revolute)
+  19, // 13: FOOT_TILT_R (FootJointR_to_RightFoot_revolute)
 ];
 
 /**
  * Reverse mapping: servo ID to policy index.
  */
 export const SERVO_TO_POLICY: Map<number, number> = new Map(
-  POLICY_TO_SERVO.map((servoId, policyIdx) => [servoId, policyIdx])
+  POLICY_TO_SERVO.map((servoId, policyIdx) => [servoId, policyIdx]),
 );
 
 /**
@@ -60,77 +60,77 @@ export const SERVO_TO_POLICY: Map<number, number> = new Map(
  * Order matches training environment (same as POLICY_TO_SERVO).
  */
 export const JOINT_LIMITS: [number, number][] = [
-  [-0.61, 0.61],   // 0: LeftHipBracket (HIP_ROTATE_L)
-  [-0.61, 0.61],   // 1: RightHipBracket (HIP_ROTATE_R)
-  [-3.14, 1.57],   // 2: shoulder_v1Mirror (SHOULDER_MAIN_L)
-  [-1.57, 3.14],   // 3: shoulder_v1 (SHOULDER_MAIN_R)
-  [-0.44, 0.44],   // 4: HipBulkL (HIP_TILT_L)
-  [-0.44, 0.44],   // 5: HipBulkR (HIP_TILT_R)
-  [-1.57, 0.79],   // 6: HipL (HIP_MAIN_L)
-  [-0.61, 1.57],   // 7: HipR (HIP_MAIN_R)
-  [0.0, 1.92],     // 8: TibiaL (KNEE_L)
-  [-1.92, 0.0],    // 9: TibiaR (KNEE_R)
-  [-1.48, 0.79],   // 10: FootJointL (FOOT_MAIN_L)
-  [-1.48, 0.79],   // 11: FootJointR (FOOT_MAIN_R)
-  [-0.35, 0.35],   // 12: LeftFoot (FOOT_TILT_L)
-  [-0.35, 0.35],   // 13: RightFoot (FOOT_TILT_R)
+  [-0.61, 0.61], // 0: LeftHipBracket (HIP_ROTATE_L)
+  [-0.61, 0.61], // 1: RightHipBracket (HIP_ROTATE_R)
+  [-3.14, 1.57], // 2: shoulder_v1Mirror (SHOULDER_MAIN_L)
+  [-1.57, 3.14], // 3: shoulder_v1 (SHOULDER_MAIN_R)
+  [-0.44, 0.44], // 4: HipBulkL (HIP_TILT_L)
+  [-0.44, 0.44], // 5: HipBulkR (HIP_TILT_R)
+  [-1.57, 0.79], // 6: HipL (HIP_MAIN_L)
+  [-0.61, 1.57], // 7: HipR (HIP_MAIN_R)
+  [0.0, 1.92], // 8: TibiaL (KNEE_L)
+  [-1.92, 0.0], // 9: TibiaR (KNEE_R)
+  [-1.48, 0.79], // 10: FootJointL (FOOT_MAIN_L)
+  [-1.48, 0.79], // 11: FootJointR (FOOT_MAIN_R)
+  [-0.35, 0.35], // 12: LeftFoot (FOOT_TILT_L)
+  [-0.35, 0.35], // 13: RightFoot (FOOT_TILT_R)
 ];
 
 const NUM_JOINTS = 14;
 const ACTION_HISTORY_SIZE = 4;
-// OBS: 3 acc + 3 gyro + 3 gravity + 3 cmdVel + 2 gait phase + 14 jointPos + 14 prevJointPos + 14*4 actions = 96
-const OBS_SIZE = 98;
+// OBS: 3 acc + 3 gyro + 3 gravity + 3 cmdVel + 2 gait phase + 14 jointPos + 14 prevJointPos + 14 actions = 56
+const OBS_SIZE = 3 + 3 + 3 + 3 + 2 + 14 + 14 + 14;
 
 /**
  * Sign flip to convert URDF convention → physical servo convention.
- * 
+ *
  * Empirically determined by testing each joint individually.
  * If joint moves OPPOSITE to expected, flip the sign here.
- * 
+ *
  * Verified joints (user tested 2024-11):
  * - Reversed from initial: 0, 1, 2, 3, 6, 7, 10, 11
  */
 const POLICY_SIGN_FLIP: number[] = [
-  +1,  // 0: HIP_ROTATE_L - verified
-  -1,  // 1: HIP_ROTATE_R - verified
-  +1,  // 2: SHOULDER_MAIN_L - verified
-  -1,  // 3: SHOULDER_MAIN_R - verified
-  -1,  // 4: HIP_TILT_L - verified
-  -1,  // 5: HIP_TILT_R - verified
-  +1,  // 6: HIP_MAIN_L - verified
-  -1,  // 7: HIP_MAIN_R - verified
-  +1,  // 8: KNEE_L - verified
-  -1,  // 9: KNEE_R - verified
-  +1,  // 10: FOOT_MAIN_L - verified
-  +1,  // 11: FOOT_MAIN_R - verified
-  +1,  // 12: FOOT_TILT_L - verified
-  +1,  // 13: FOOT_TILT_R - verified
+  +1, // 0: HIP_ROTATE_L - verified
+  -1, // 1: HIP_ROTATE_R - verified
+  +1, // 2: SHOULDER_MAIN_L - verified
+  -1, // 3: SHOULDER_MAIN_R - verified
+  -1, // 4: HIP_TILT_L - verified
+  -1, // 5: HIP_TILT_R - verified
+  +1, // 6: HIP_MAIN_L - verified
+  -1, // 7: HIP_MAIN_R - verified
+  +1, // 8: KNEE_L - verified
+  -1, // 9: KNEE_R - verified
+  +1, // 10: FOOT_MAIN_L - verified
+  +1, // 11: FOOT_MAIN_R - verified
+  +1, // 12: FOOT_TILT_L - verified
+  +1, // 13: FOOT_TILT_R - verified
 ];
 
 /**
  * Default joint positions in URDF convention (radians).
- * 
+ *
  * This represents the URDF position that corresponds to servo 2048 (mechanical neutral).
  * Used to offset between mechanical neutral and URDF neutral.
- * 
+ *
  * For most joints: servo 2048 = URDF 0 (no offset needed)
  * For shoulders: servo 2048 = arms forward = URDF ±1.57 rad (90° offset)
  */
 const DEFAULT_JOINT_POS: number[] = [
-  0,      // 0: HIP_ROTATE_L
-  0,      // 1: HIP_ROTATE_R
-  +1.57,  // 2: SHOULDER_MAIN_L - offset so action=0 → servo 1024 (arms down)
-  -1.57,  // 3: SHOULDER_MAIN_R - offset so action=0 → servo 3072 (arms down)
-  0,      // 4: HIP_TILT_L
-  0,      // 5: HIP_TILT_R
-  0,      // 6: HIP_MAIN_L
-  0,      // 7: HIP_MAIN_R
-  0,      // 8: KNEE_L
-  0,      // 9: KNEE_R
-  0,      // 10: FOOT_MAIN_L
-  0,      // 11: FOOT_MAIN_R
-  0,      // 12: FOOT_TILT_L
-  0,      // 13: FOOT_TILT_R
+  0, // 0: HIP_ROTATE_L
+  0, // 1: HIP_ROTATE_R
+  +1.57, // 2: SHOULDER_MAIN_L - offset so action=0 → servo 1024 (arms down)
+  -1.57, // 3: SHOULDER_MAIN_R - offset so action=0 → servo 3072 (arms down)
+  0, // 4: HIP_TILT_L
+  0, // 5: HIP_TILT_R
+  0, // 6: HIP_MAIN_L
+  0, // 7: HIP_MAIN_R
+  0, // 8: KNEE_L
+  0, // 9: KNEE_R
+  0, // 10: FOOT_MAIN_L
+  0, // 11: FOOT_MAIN_R
+  0, // 12: FOOT_TILT_L
+  0, // 13: FOOT_TILT_R
 ];
 
 // Servo steps per radian: (4095 - 0) / (2 * PI) ≈ 651.9
@@ -138,21 +138,21 @@ const STEPS_PER_RAD = 4095 / (2 * Math.PI);
 
 // Low-pass filter alpha for IMU data (0-1)
 // 0 = no filtering (use previous), 1 = no filtering (use raw), ~0.2 = heavy smoothing
-const IMU_FILTER_ALPHA = 0.7;  // Set to 1.0 to disable filtering
+const IMU_FILTER_ALPHA = 0.4; // Set to 1.0 to disable filtering
 
 // Action smoothing alpha (0-1)
 // Blends new actions with previous to prevent rapid changes
 // 1.0 = no smoothing (raw actions), 0.3 = moderate smoothing
-const ACTION_SMOOTH_ALPHA = 1.0;  // Set to 1.0 to disable
+const ACTION_SMOOTH_ALPHA = 0.4; // Set to 1.0 to disable
 
 // Gait phase frequency (Hz)
-const GAIT_PHASE_FREQ = 1.0;
+const GAIT_PHASE_FREQ = 1.5;
 
 // Debug logging flag - set to true to enable detailed logging to file
 export const POLICY_DEBUG_LOGGING = true;
 
 export type IMUData = {
-  quat: number[];      // [qw, qx, qy, qz] or [qx, qy, qz, qw] - check your IMU
+  quat: number[]; // [qw, qx, qy, qz] or [qx, qy, qz, qw] - check your IMU
   gravVector: number[]; // May be unreliable - we compute our own
   acc: number[];
   gyro: number[];
@@ -161,11 +161,13 @@ export type IMUData = {
 /**
  * Compute projected gravity from quaternion.
  * Rotates world gravity [0, 0, -1] into body frame.
- * 
+ *
  * @param quat Quaternion [qx, qy, qz, qw] (scalar-last, as output by IMU)
  * @returns Unit vector [gx, gy, gz] in body frame
  */
-export function computeProjectedGravity(quat: number[]): [number, number, number] {
+export function computeProjectedGravity(
+  quat: number[],
+): [number, number, number] {
   // IMU outputs scalar-last: [qx, qy, qz, qw]
   const qx = quat[0] ?? 0;
   const qy = quat[1] ?? 0;
@@ -183,24 +185,24 @@ export class PolicyRunner {
   // Action history: [0]=most recent, [1]=second most recent, etc.
   // Each entry is an array of NUM_JOINTS actions
   private actionHistory: number[][] = Array.from(
-    { length: ACTION_HISTORY_SIZE },
-    () => new Array(NUM_JOINTS).fill(0)
+    {length: ACTION_HISTORY_SIZE},
+    () => new Array(NUM_JOINTS).fill(0),
   );
   private modelLoaded = false;
-  
+
   // Previous joint positions (from last tick)
   private prevJointPos: number[] | null = null;
-  
+
   // Gait phase start time (for sine/cosine clock)
   private gaitPhaseStartTime: number | null = null;
-  
+
   // Filtered IMU values (for low-pass filtering)
   private filteredAcc: number[] | null = null;
   private filteredGyro: number[] | null = null;
-  
+
   // Smoothed actions (for action smoothing)
   private smoothedAction: number[] | null = null;
-  
+
   // Raw policy output (before clipping/smoothing) for debugging
   private lastRawActions: number[] = new Array(NUM_JOINTS).fill(0);
 
@@ -216,7 +218,7 @@ export class PolicyRunner {
   servoToRad(servoPos: number, servoId: number): number {
     const config = servoConfig[servoId];
     if (!config) throw new Error(`Unknown servo ID: ${servoId}`);
-    return config.direction * (servoPos - ServoMiddle) / STEPS_PER_RAD;
+    return (config.direction * (servoPos - ServoMiddle)) / STEPS_PER_RAD;
   }
 
   /**
@@ -238,7 +240,9 @@ export class PolicyRunner {
       const servoId = POLICY_TO_SERVO[i]!;
       const servoPos = servoPositions[servoId];
       if (servoPos === undefined) {
-        console.warn(`[PolicyRunner] Missing servo position for ID ${servoId}, using 2048`);
+        console.warn(
+          `[PolicyRunner] Missing servo position for ID ${servoId}, using 2048`,
+        );
         jointPos.push(0);
       } else {
         // Convert servo → symmetric radians, then apply flip to get URDF convention
@@ -252,7 +256,7 @@ export class PolicyRunner {
   /**
    * Convert servo velocities to joint velocities in URDF convention.
    * Uses servo's built-in velocity feedback (cleaner than differentiation).
-   * 
+   *
    * @param servoSpeeds Record<servoId, speed> in servo units/second
    * @returns Joint velocities in rad/s, URDF convention
    */
@@ -267,7 +271,7 @@ export class PolicyRunner {
         // Convert servo speed to rad/s, applying direction and sign flip
         // Same transform as positions: servo → symmetric → URDF
         const config = servoConfig[servoId];
-        const symmetricVel = config!.direction * servoSpeed / STEPS_PER_RAD;
+        const symmetricVel = (config!.direction * servoSpeed) / STEPS_PER_RAD;
         jointVel.push(symmetricVel * POLICY_SIGN_FLIP[i]!);
       }
     }
@@ -287,12 +291,12 @@ export class PolicyRunner {
     // Joint positions relative to default
     // DEFAULT_JOINT_POS represents where servo 2048 is in URDF space
     const jointPosRel = jointPos.map((pos, i) => pos - DEFAULT_JOINT_POS[i]!);
-    
+
     // Previous joint positions (use current if first tick)
-    const prevJointPosRel = this.prevJointPos 
+    const prevJointPosRel = this.prevJointPos
       ? this.prevJointPos.map((pos, i) => pos - DEFAULT_JOINT_POS[i]!)
       : jointPosRel;
-    
+
     // Store current for next tick
     this.prevJointPos = jointPos.slice();
 
@@ -323,8 +327,12 @@ export class PolicyRunner {
       this.filteredGyro = rawGyro;
     } else {
       for (let i = 0; i < 3; i++) {
-        this.filteredAcc[i] = IMU_FILTER_ALPHA * rawAcc[i]! + (1 - IMU_FILTER_ALPHA) * this.filteredAcc[i]!;
-        this.filteredGyro![i] = IMU_FILTER_ALPHA * rawGyro[i]! + (1 - IMU_FILTER_ALPHA) * this.filteredGyro![i]!;
+        this.filteredAcc[i] =
+          IMU_FILTER_ALPHA * rawAcc[i]! +
+          (1 - IMU_FILTER_ALPHA) * this.filteredAcc[i]!;
+        this.filteredGyro![i] =
+          IMU_FILTER_ALPHA * rawGyro[i]! +
+          (1 - IMU_FILTER_ALPHA) * this.filteredGyro![i]!;
       }
     }
 
@@ -332,22 +340,31 @@ export class PolicyRunner {
     if (this.gaitPhaseStartTime === null) {
       this.gaitPhaseStartTime = Date.now();
     }
-    const t = (Date.now() - this.gaitPhaseStartTime) / 1000;  // seconds
+    const t = (Date.now() - this.gaitPhaseStartTime) / 1000; // seconds
     const phase = 2 * Math.PI * GAIT_PHASE_FREQ * t;
     const gaitPhaseSin = Math.sin(phase);
     const gaitPhaseCos = Math.cos(phase);
 
     const obs: number[] = [
       // Base linear acceleration (3) - filtered
-      this.filteredAcc[0]!, this.filteredAcc[1]!, this.filteredAcc[2]!,
+      this.filteredAcc[0]!,
+      this.filteredAcc[1]!,
+      this.filteredAcc[2]!,
       // Base angular velocity (3) - filtered
-      this.filteredGyro![0]!, this.filteredGyro![1]!, this.filteredGyro![2]!,
+      this.filteredGyro![0]!,
+      this.filteredGyro![1]!,
+      this.filteredGyro![2]!,
       // Projected gravity (3) - computed from quaternion
-      projectedGravity[0], projectedGravity[1], projectedGravity[2],
+      projectedGravity[0],
+      projectedGravity[1],
+      projectedGravity[2],
       // Velocity commands (3)
-      cmdVel[0], cmdVel[1], cmdVel[2],
+      cmdVel[0],
+      cmdVel[1],
+      cmdVel[2],
       // Gait phase (2) - sine and cosine
-      gaitPhaseSin, gaitPhaseCos,
+      gaitPhaseSin,
+      gaitPhaseCos,
       // Joint positions relative to default (14)
       ...jointPosRel,
       // Previous joint positions relative to default (14)
@@ -357,7 +374,9 @@ export class PolicyRunner {
     ];
 
     if (obs.length !== OBS_SIZE) {
-      throw new Error(`Observation size mismatch: expected ${OBS_SIZE}, got ${obs.length}`);
+      throw new Error(
+        `Observation size mismatch: expected ${OBS_SIZE}, got ${obs.length}`,
+      );
     }
 
     // console.log('obs:', JSON.stringify(obs, null, 2))
@@ -379,7 +398,7 @@ export class PolicyRunner {
     }
 
     const rawActions = addon.runModel(obs);
-    
+
     // Store raw actions for debugging
     this.lastRawActions = rawActions.slice();
 
@@ -391,14 +410,16 @@ export class PolicyRunner {
     this.actionHistory[0] = rawActions.slice();
 
     // Clip to [-1, 1] for servo output
-    const actions = rawActions.map(a => Math.max(-1, Math.min(1, a)));
+    const actions = rawActions.map((a) => Math.max(-1, Math.min(1, a)));
 
     // Apply action smoothing (set ACTION_SMOOTH_ALPHA=1.0 to disable)
     if (this.smoothedAction === null) {
       this.smoothedAction = actions.slice();
     } else {
       for (let i = 0; i < actions.length; i++) {
-        this.smoothedAction[i] = ACTION_SMOOTH_ALPHA * actions[i]! + (1 - ACTION_SMOOTH_ALPHA) * this.smoothedAction[i]!;
+        this.smoothedAction[i] =
+          ACTION_SMOOTH_ALPHA * actions[i]! +
+          (1 - ACTION_SMOOTH_ALPHA) * this.smoothedAction[i]!;
       }
     }
 
@@ -452,7 +473,7 @@ export class PolicyRunner {
   /**
    * Check if robot is tilted excessively (emergency condition).
    * Returns true if tilt exceeds ~45 degrees from vertical.
-   * 
+   *
    * @param quat Quaternion [qw, qx, qy, qz] from IMU
    */
   checkExcessiveTilt(quat: number[]): boolean {
@@ -466,9 +487,8 @@ export class PolicyRunner {
    * Reset internal state (call when starting/stopping policy control).
    */
   reset(): void {
-    this.actionHistory = Array.from(
-      { length: ACTION_HISTORY_SIZE },
-      () => new Array(NUM_JOINTS).fill(0)
+    this.actionHistory = Array.from({length: ACTION_HISTORY_SIZE}, () =>
+      new Array(NUM_JOINTS).fill(0),
     );
     this.prevJointPos = null;
     this.gaitPhaseStartTime = null;
