@@ -1,6 +1,13 @@
-import { writeFile, readFileSync } from 'fs'
-import { MasterHandlerState, servoConfig, ServoIDs, ServoMiddle, ServoRangeMax, ServoRangeMin } from './types'
-import { performance } from 'perf_hooks';
+import {writeFile, readFileSync} from 'fs';
+import {
+  MasterHandlerState,
+  servoConfig,
+  ServoIDs,
+  ServoMiddle,
+  ServoRangeMax,
+  ServoRangeMin,
+} from './types';
+import {performance} from 'perf_hooks';
 import e from 'express';
 
 export const saveJSON = (
@@ -9,82 +16,82 @@ export const saveJSON = (
 ) => {
   writeFile(path, JSON.stringify(object, null, 2), (err) => {
     if (err) {
-      console.error('Error writing file:', err)
+      console.error('Error writing file:', err);
     } else {
-      console.log('JSON file has been saved.')
+      console.log('JSON file has been saved.');
     }
-  })
-}
+  });
+};
 
 export const getJSONSync = (path: string): Record<string, any> | null => {
   try {
-    const data = readFileSync(path, 'utf8')
-    return JSON.parse(data)
+    const data = readFileSync(path, 'utf8');
+    return JSON.parse(data);
   } catch (error) {
-    console.error('Error reading or parsing file:', error)
-    return null // Return null in case of error
+    console.error('Error reading or parsing file:', error);
+    return null; // Return null in case of error
   }
-}
+};
 
-export const sittingPosition = getJSONSync('jsons/sittingPosition.json') ?? {}
-export const standingPosition = getJSONSync('jsons/standing.json') ?? {}
+export const sittingPosition = getJSONSync('jsons/sittingPosition.json') ?? {};
+export const standingPosition = getJSONSync('jsons/standing.json') ?? {};
 
 export const convertToNumberRecord = <T>(
   obj: Record<string, T>,
 ): Record<number, T> => {
-  const result: Record<number, T> = {}
+  const result: Record<number, T> = {};
 
   Object.keys(obj).forEach((key) => {
     if (obj.hasOwnProperty(key)) {
-      const numericKey = Number(key)
+      const numericKey = Number(key);
       if (!isNaN(numericKey)) {
-        result[numericKey] = obj[key] as T
+        result[numericKey] = obj[key] as T;
       }
     }
-  })
+  });
 
-  return result
-}
+  return result;
+};
 
 export const comparePositions = (
   currentPosition: Record<number, number>,
   templatePosition: Record<number, number>,
   coefficient: number = 125,
 ): boolean => {
-  let sumOfSquares = 0
+  let sumOfSquares = 0;
 
   Object.keys(currentPosition).forEach((key) => {
     if (
       currentPosition.hasOwnProperty(key) &&
       templatePosition.hasOwnProperty(key)
     ) {
-      const currentValue = currentPosition[Number(key)] as number
-      const templateValue = templatePosition[Number(key)] as number
+      const currentValue = currentPosition[Number(key)] as number;
+      const templateValue = templatePosition[Number(key)] as number;
 
       // Convert from 0-4096 to -10 to 10, for comparing conveniency
-      const currentScaled = (currentValue / 4096) * 20 - 10
-      const templateScaled = (templateValue / 4096) * 20 - 10
+      const currentScaled = (currentValue / 4096) * 20 - 10;
+      const templateScaled = (templateValue / 4096) * 20 - 10;
 
       // Calculate the squared difference
-      const difference = currentScaled - templateScaled
-      sumOfSquares += difference ** 2
+      const difference = currentScaled - templateScaled;
+      sumOfSquares += difference ** 2;
     }
-  })
+  });
 
   // Divide the sum of squares by the coefficient
-  return sumOfSquares / coefficient < 1
-}
+  return sumOfSquares / coefficient < 1;
+};
 
 export const makeGlobalServoValues = (value: number) => {
-  const result: Record<number, number> = {}
+  const result: Record<number, number> = {};
   Object.keys(ServoIDs).forEach((id) => {
-    result[ServoIDs[id as keyof typeof ServoIDs]] = value
-  })
-  return result
-}
+    result[ServoIDs[id as keyof typeof ServoIDs]] = value;
+  });
+  return result;
+};
 
 export const makeLegServoValues = (value: number) => {
-  const result: Record<number, number> = {}
+  const result: Record<number, number> = {};
   const legIds = [
     ServoIDs.HIP_MAIN_R,
     ServoIDs.HIP_TILT_R,
@@ -99,13 +106,12 @@ export const makeLegServoValues = (value: number) => {
     ServoIDs.KNEE_L,
     ServoIDs.FOOT_MAIN_L,
     ServoIDs.FOOT_TILT_L,
-  ]
+  ];
   legIds.forEach((id) => {
-    result[id] = value
-  })
-  return result
-}
-
+    result[id] = value;
+  });
+  return result;
+};
 
 export type RunLoopControl = {
   stop: () => Promise<void>;
@@ -121,7 +127,7 @@ export function createRunLoop(
     avgWindowSize?: number;
     logEvery?: number;
     shouldLog?: boolean;
-  }
+  },
 ): RunLoopControl {
   const avgWindowSize = options?.avgWindowSize ?? 100;
   const logEvery = options?.logEvery ?? 100;
@@ -140,7 +146,7 @@ export function createRunLoop(
 
   async function loop() {
     let nextTargetTime = performance.now();
-    
+
     while (shouldRun) {
       if (paused) {
         await new Promise((resolve) => setTimeout(resolve, targetPeriodMs));
@@ -156,9 +162,11 @@ export function createRunLoop(
       } catch (err) {
         if (errorCount < 10) {
           errorCount += 1;
-          console.warn(`Warning! main() threw error №${errorCount}: ${err}`)
+          console.warn(`Warning! main() threw error №${errorCount}: ${err}`);
         } else {
-          console.error(`[FATAL ERROR] main() threw ${errorCount} errors in a row, stopping runLoop.`);
+          console.error(
+            `[FATAL ERROR] main() threw ${errorCount} errors in a row, stopping runLoop.`,
+          );
           console.error(err);
           shouldRun = false;
           break;
@@ -176,10 +184,12 @@ export function createRunLoop(
       nextTargetTime += targetPeriodMs;
       const now = performance.now();
       const remaining = nextTargetTime - now;
-      
+
       if (remaining < -targetPeriodMs) {
         // We're way behind, reset to catch up
-        console.warn(`[WARNING] Loop fell behind by ${(-remaining).toFixed(2)}ms, resetting`);
+        console.warn(
+          `[WARNING] Loop fell behind by ${(-remaining).toFixed(2)}ms, resetting`,
+        );
         nextTargetTime = now + targetPeriodMs;
       } else if (remaining < 0) {
         // Slight overrun, skip sleep but don't reset
@@ -191,7 +201,9 @@ export function createRunLoop(
       cycleCount++;
       if (cycleCount % logEvery === 0 && shouldLog) {
         const avg = durations.reduce((sum, d) => sum + d, 0) / durations.length;
-        console.log(`[INFO] Average main() duration: ${avg.toFixed(3)}ms over last ${durations.length} cycles`);
+        console.log(
+          `[INFO] Average main() duration: ${avg.toFixed(3)}ms over last ${durations.length} cycles`,
+        );
       }
     }
 
@@ -206,8 +218,12 @@ export function createRunLoop(
       shouldRun = false;
       await loopPromise;
     },
-    pause: () => { paused = true; },
-    resume: () => { paused = false; },
+    pause: () => {
+      paused = true;
+    },
+    resume: () => {
+      paused = false;
+    },
     isRunning: () => shouldRun && !paused,
   };
 }
@@ -217,7 +233,7 @@ type ServoPositions = Record<number, number>;
 export function calculateServoSpeeds(
   current: ServoPositions,
   target: ServoPositions,
-  durationSec: number
+  durationSec: number,
 ): Record<string, number> {
   const speeds: Record<string, number> = {};
 
@@ -242,70 +258,16 @@ export function sleep(ms: number): Promise<void> {
 }
 
 export const crouchedPosition = {
-  "9": 2046,
-  "10": 2050,
-  "11": 2100,
-  "12": 2000,
-  "13": 2048,
-  "14": 2048,
-  "15": 2048,
-  "16": 2048,
-  "17": 2048,
-  "18": 2048,
-  "19": 2049,
-  "20": 2047
-}
-
-function clampServoValue(value: number, id: number): number {
-  if (value < ServoRangeMin || value > ServoRangeMax) {
-    console.warn(`[servo ${id}] Value ${value} out of range, clamped to [${ServoRangeMin}, ${ServoRangeMax}]`);
-    return Math.min(Math.max(value, ServoRangeMin), ServoRangeMax);
-  }
-  return value;
-}
-
-export function makeRawPositions(target: ServoPositions): ServoPositions {
-  const result: ServoPositions = {};
-
-  for (const [idStr, rawValue] of Object.entries(target)) {
-    const id = Number(idStr);
-    const config = servoConfig[id];
-    if (!config) throw new Error(`Unknown servo ID: ${id}`);
-
-    const raw = rawValue + config.offset;
-    result[id] = clampServoValue(raw, id);
-  }
-
-  return result;
-}
-
-export function makePositions(target: ServoPositions): ServoPositions {
-  const result: ServoPositions = {};
-
-  for (const [idStr, rawValue] of Object.entries(target)) {
-    const id = Number(idStr);
-    const config = servoConfig[id];
-    if (!config) throw new Error(`Unknown servo ID: ${id}`);
-
-    const raw = ServoMiddle + config.direction * rawValue + config.offset;
-    result[id] = clampServoValue(raw, id);
-  }
-
-  return result;
-}
-
-export function makeRadPositions(target: ServoPositions): ServoPositions {
-  const result: ServoPositions = {};
-
-  for (const [idStr, rawValue] of Object.entries(target)) {
-    const id = Number(idStr);
-    const config = servoConfig[id];
-    if (!config) throw new Error(`Unknown servo ID: ${id}`);
-
-    const normalized = rawValue / Math.PI; // –1 to 1
-    const raw = ServoMiddle + config.direction * normalized * (ServoRangeMax - ServoMiddle) + config.offset;
-    result[id] = clampServoValue(Math.round(raw), id);
-  }
-
-  return result;
-}
+  '9': 2046,
+  '10': 2050,
+  '11': 2100,
+  '12': 2000,
+  '13': 2048,
+  '14': 2048,
+  '15': 2048,
+  '16': 2048,
+  '17': 2048,
+  '18': 2048,
+  '19': 2049,
+  '20': 2047,
+};

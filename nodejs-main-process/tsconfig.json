@@ -7,7 +7,7 @@
     "lib": ["esnext", "dom"],
     "strict": true,
     // "noUnusedLocals": true,
-    "noUnusedParameters": true,
+    // "noUnusedParameters": true,
     "noImplicitReturns": true,
     "esModuleInterop": true,
     "noUncheckedIndexedAccess": true
